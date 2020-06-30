@@ -97,6 +97,7 @@ After cloning the repository, take a look at the `locust_tester.py`. This is, ba
 an ordinary [Locust script](https://docs.locust.io/en/stable/writing-a-locustfile.html) 
 that sends request to the target system and measures the response time, 
 when the response arrives. Our locust_tester.py is special, because:
+
 * we implemented a [custom client](https://docs.locust.io/en/stable/testing-other-systems.html) 
 instead of using the default;
 * we additionally log the response times to a logfile 
