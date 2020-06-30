@@ -48,4 +48,4 @@ The recovery is performed after the time, the real fault management mechanism re
 If you follow the steps and, for example, let the test run for about an hour, 
 you will get similar results to the ones found in the Folder "Tests under Fault".
 
-![Results](Tests_under_Fault/30.06.20.png)
+![Results](Tests_under_Fault/30.06.20.svg)
