@@ -23,6 +23,7 @@ Python scripts in our case, that together allow to:
 2. evaluate the performance measurements assisted by visualizations.
 
 Generally, we have three types of components:
+
 * Executors: execute a particular Load Tester as long as the Load Tester provides a CLI or an API;
 * Load Testers: execute the load test, parametrized with values given by an Executor. 
 Have to output a logfile containing the response times;
