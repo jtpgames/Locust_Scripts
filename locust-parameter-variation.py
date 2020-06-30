@@ -40,7 +40,7 @@ if plt != "Windows":
 
 # url = input('URL of the software to test: ')
 
-url = "http://localhost:13565"
+url = "http://localhost:1337"
 
 fh = logging.FileHandler('locust-parameter-variation.log')
 fh.setLevel(logging.DEBUG)

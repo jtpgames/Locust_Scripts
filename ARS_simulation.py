@@ -34,6 +34,11 @@ def between(min, max):
 
 
 def recover():
+
+    # TODO Implement "operator reaction" time
+
+    # TODO Implement "restart" time
+
     global _is_faulted
     _is_faulted = False
 
@@ -55,12 +60,11 @@ def inject_three_faults_in_a_row():
     due_date1 = datetime.now() + timedelta(0, minutes=5)
     due_date2 = due_date1 + timedelta(0, 60)
     due_date3 = due_date2 + timedelta(0, 60)
-    due_date4 = due_date3 + timedelta(0, minutes=5)
 
     scheduler.add_job(simulate_fault, 'date', run_date=due_date1)
     scheduler.add_job(simulate_fault, 'date', run_date=due_date2)
     scheduler.add_job(simulate_fault, 'date', run_date=due_date3)
-    scheduler.add_job(inject_three_faults_in_a_row, 'date', run_date=due_date4)
+    scheduler.add_job(inject_three_faults_in_a_row, 'date', run_date=due_date3)
 
 
 def simulate_fault():
@@ -197,7 +201,7 @@ def main():
     #inject_a_fault_every_s_seconds(60)
     inject_three_faults_in_a_row()
 
-    port = 13565
+    port = 1337
     print('Listening on localhost:%s' % port)
     server = HTTPServer(('', port), RequestHandler)
     #server = ThreadingHTTPServer(('', port), RequestHandler)

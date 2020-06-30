@@ -20,7 +20,7 @@ class AlarmDeviceBehavior(TaskSet):
 
         json_string = json.dumps(json_msg)
 
-        response = self.client.post("/api/v1/fake_call", json_msg)
+        response = self.client.post("/fake_call", json_msg)
 
     @task(1)
     def fake_alarm(self):

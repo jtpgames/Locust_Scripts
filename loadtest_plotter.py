@@ -144,13 +144,23 @@ def plot_response_times(response_times, logfile):
     #     for d in allStarts:
     #         plt.axvline(d, color='green')
 
-    print("-- Response times as measured by Locust --")
+    print("-- Response times as measured by Locust sorted by value and then time --")
     max_response_times = sorted(response_times, key=response_times.get, reverse=True)[:8]
     for i in sorted(max_response_times):
         print("{} {}".format(i.strftime("%H:%M:%S"), response_times[i]))
     print("--")
 
+    en50136_max_response_time = 30
+
+    print("-- Response times statistics --")
+    print("Number of responses: {}".format(len(times)))
+    times_above_ten_seconds = list(filter(lambda t: t > 10, times))
+    print("Number of faults: {}".format(len(times_above_ten_seconds)))
+    times_above_max_response_time = list(filter(lambda t: t > en50136_max_response_time, times))
+    print("Response times above requirements: {}".format(len(times_above_max_response_time)))
+
     print("Min response time: {}".format(min(times)))
+    print("---")
 
     min_times = min(times)
 
@@ -160,7 +170,7 @@ def plot_response_times(response_times, logfile):
     plt.axhline(min_times, color='blue', label='Minimum response time measured')
     #plt.axhline(max(times), color='r', label='Maximum response time measured')
 
-    plt.axhline(30, color='r', label='Maximum response time allowed')
+    plt.axhline(en50136_max_response_time, color='r', label='Maximum response time allowed')
 
     plt.axhline(28, color='orange', label='Expected min fault time')
     plt.axhline(36, color='orange', label='Expected max fault time')
