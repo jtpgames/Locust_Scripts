@@ -22,35 +22,45 @@ Python scripts in our case, that together allow to:
 1. reproducible execute a load testing tool with a set of parameters for a particular experiment,
 2. evaluate the performance measurements assisted by visualizations.
 
-Generally, we have three types of components:
+Generally, we have four types of components in our infrastructure:
 
 * Executors: execute a particular Load Tester as long as the Load Tester provides a CLI or an API;
 * Load Testers: execute the load test, parametrized with values given by an Executor. 
 Have to output a logfile containing the response times;
 * Evaluators: read the logfile, plot at least the response times, 
 and the performance requirements the target system has to comply with.
+* Systems under Test (SUTs): Target systems we want to test. 
+Usually, the target systems will be external systems, e.g., web servers. 
+In our case, we build software that simulates the behavior of a real system, 
+in order to provide the means for others to roughly reproduce our experiments.
 
 More details about our generic performance testing infrastructure can be found in our paper.
 
 This repository contains the aforementioned Python scripts:
 
-* executor.py: executes Locust with a set of parameters;
-* locust-parameter-variation.py: executes Locust for as long as the ARS complies with real-time requirements
-in order to find the saturation point of the ARS;
-* locust_tester.py: contains specific code for Locust to perform the actual performance test.
+* Executors:
+    * executor.py: executes Locust with a set of parameters;
+    * locust-parameter-variation.py: executes Locust and keeps increasing the load.
+    This is similar to Locust's [Step Load Mode](https://docs.locust.io/en/stable/running-locust-in-step-load-mode.html), 
+    however, our approach increases the number of clients for as long as the ARS complies with real-time requirements
+    in order to find the saturation point of the ARS. 
+* Load Testers:
+    * locust_tester.py: contains specific code for Locust to perform the actual performance test.
 For demonstration purposes, this script tests ARS_simulation.py.
 Outputs a `locust_log.log`;
-* loadtest_plotter.py: reads the `locust_log.log`, plots response times, and additional metrics 
+* Evaluators:
+    * loadtest_plotter.py: reads the `locust_log.log`, plots response times, and additional metrics 
 to better visualize, if the real-time requirements of the EN 50136 are met.
-* Alarm Receiving Software Simulation (ARS_simulation.py): simulates workload measured 
+* SUTs
+    * Alarm Receiving Software Simulation (ARS_simulation.py): simulates workload measured 
 in the production environment of an industrial ARS.
 
 # Quick start
 * Clone the repository;
 * run `pip3 install -r requirements.txt`;
 * open two terminal shells: 
-  1) run `python3 ARS_simulation.py` in one of them;
-  2) run `python3 executor.py.` in the other.
+    1. run `python3 ARS_simulation.py` in one of them;
+    2. run `python3 executor.py.` in the other.
 * to stop the test, terminate the executor.py script;
 * run `python3 loadtest_plotter.py`, pass the locust_log.log and see the results. :)
 
@@ -92,7 +102,16 @@ instead of using the default;
 * we additionally log the response times to a logfile 
 instead of using the [.csv files](https://docs.locust.io/en/stable/retrieving-stats.html) Locust provides.
 
-So, write a performance test using Locust, follow the instructions of the developers
+So, write a performance test using Locust, following the instructions of the Locust developers
 on how to write a Locust script. The only thing to keep in mind is, that your Locust script 
 has to output the measured response times to a logfile in the same way our script does it. 
 Use `logger.info("Response time %s ms", total_time)` to log the response times.
+
+When you have your Locust script ready, execute it with `python3 executor.py.`, enter your script when prompted, 
+and when you want to finish the load test, terminate it with `Ctrl + C`.
+
+``````
+% python3 executor.py
+Path to the Locust script: your_script.py
+``````
+
