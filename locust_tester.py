@@ -9,6 +9,7 @@ from requests import RequestException
 
 import logging
 
+
 class AlarmDeviceBehavior(TaskSet):
 
     def send_alarm(self):
@@ -20,8 +21,6 @@ class AlarmDeviceBehavior(TaskSet):
         json_string = json.dumps(json_msg)
 
         response = self.client.post("/api/v1/fake_call", json_msg)
-
-        # print("Response status code:", response.status_code)
 
     @task(1)
     def fake_alarm(self):
@@ -39,14 +38,15 @@ class RepeatingHttpClient:
 
         logger.info("Sending to %s", url)
 
+        # TODO Simply use StopWatch instead of manually calculating total_time
         tau_trigger = time.time()
 
         successfully_sent = False
         while not successfully_sent:
             try:
-                logger.info("POST")
+                logger.debug("POST")
                 response = requests.post(url, json=json_data)
-                logger.info("Response: %s", response.status_code)
+                logger.debug("Response: %s", response.status_code)
 
                 successfully_sent = 200 <= response.status_code < 300
             except RequestException:
