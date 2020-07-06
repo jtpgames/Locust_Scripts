@@ -3,41 +3,85 @@
 # Based on https://gist.github.com/huyng/814831 Written by Nathan Hamiel (2010)
 import os
 from http.server import HTTPServer, BaseHTTPRequestHandler, ThreadingHTTPServer
-from optparse import OptionParser
+import argparse
 from random import random, seed
+
+import sys
 from time import sleep
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from datetime import datetime, timedelta
 from stopwatch import Stopwatch
 
+from dataclasses import dataclass
+
 import logging
 
 fh = logging.FileHandler('ARS_simulation.log')
 fh.setLevel(logging.DEBUG)
 
-logging.basicConfig(format="%(asctime)s %(message)s",
-                    level=os.environ.get("LOGLEVEL", "INFO"),
-                    handlers=[fh])
+sh = logging.StreamHandler(sys.stdout)
+
+logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s",
+                    level=os.environ.get("LOGLEVEL", "DEBUG"),
+                    handlers=[fh, sh])
 
 logger = logging.getLogger('Audit')
 
-scheduler = BackgroundScheduler()
+scheduler = BackgroundScheduler(misfire_grace_time=100)
 time_of_last_fault = datetime.now()
 time_of_recovery = datetime.now()
-chosen_fault_time = 0
+chosen_fault_time: float = 0
 _is_faulted = False
+
+
+@dataclass
+class WorkloadModel:
+    operator_reaction_time_s: float
+    ars_recovery_time_s: float
+    fault_detection_time_range_s: tuple
+    this_ARS_number_in_the_server_list: int
+
+    min_processing_time_s: float
+    max_processing_time_s: float
+
+# -- Fault Management Model --
+# (26, 34) are the minimum and maximum times,
+# the fault detection mechanism needs to detect a fault,
+# based on the real-world fault detection mechanism.
+# For every ARS running in the system, we have additional 2 seconds,
+# so we include the position of the ARS in the "check list", so account for that.
+#
+# In addition to that, we have operator time---the time an operator needs to begin his work---
+# and recovery time---the time the recovery action requires, e.g., how much time it takes to restart the ARS.
+# --
+
+
+# 2 sec min time measured with Locust in the staging environment,
+# 10 sec max time is just for demonstration purposes
+model_staging = WorkloadModel(1, 0.5, (26, 34), 2, 2, 10)
+
+# -- min and max processing times of production environment measured from 16561 requests --
+# this very high time actually happens at night, when other processes,
+# like the database backups database are executed.
+model_production = WorkloadModel(1, 0.5, (26, 34), 2, 6, 2799)
+current_model = model_staging
 
 
 def between(min, max):
     return min + random() * (max - min)
 
 
+def notify_operator():
+    logger.debug("operator reaction time: %f", current_model.operator_reaction_time_s)
+
+    due_date = datetime.now() + timedelta(0, current_model.operator_reaction_time_s)
+    scheduler.add_job(recover, 'date', run_date=due_date)
+
+
 def recover():
-
-    # TODO Implement "operator reaction" time
-
-    # TODO Implement "restart" time
+    # Simulate recovery action time
+    sleep(current_model.ars_recovery_time_s)
 
     global _is_faulted
     _is_faulted = False
@@ -72,66 +116,58 @@ def simulate_fault():
     simulate a fault:
 
     * this method causes the function `is_faulted` to return true for `chosen_fault_time` seconds.
-    * `chosen_fault_time` is set using the ideal time the real-world fault management mechanism requires.
+    * `chosen_fault_time` is set using the fault_detection_time_range_s of the current_model.
     """
 
-    # this is the ideal time,
-    # the fault management needs to perform a recovery operation
-    # when a fault occurs.
-    # These are the expected min and max times based on the real-world fault detection mechanism.
-    # For every ARS running in the system, we have additional 2 seconds.
-    this_ARS_number_in_the_server_list = 2
-    expected_fault_time_min = 26
-    expected_fault_time_max = 34
+    if is_faulted():
+        return
 
     global chosen_fault_time
-    chosen_fault_time = between(expected_fault_time_min, expected_fault_time_max)
 
-    logger.debug("1. chosen_fault_time: %i", chosen_fault_time)
+    # fault detection time
+    chosen_fault_time = between(current_model.fault_detection_time_range_s[0],
+                                current_model.fault_detection_time_range_s[1])
 
-    chosen_fault_time += 2*(this_ARS_number_in_the_server_list-1)
+    logger.debug("chosen_fault_time: %f", chosen_fault_time)
 
-    logger.debug("2. chosen_fault_time: %i", chosen_fault_time)
+    # + delay until check
+    chosen_fault_time += 2*(current_model.this_ARS_number_in_the_server_list-1)
+
+    logger.debug("# + delay until check: %f", chosen_fault_time)
 
     global time_of_last_fault
     time_of_last_fault = datetime.now()
 
-    logger.info("ARS faulted @%s", time_of_last_fault)
+    logger.info("ARS faulted @%s; operator will be notified in %ss",
+                time_of_last_fault,
+                chosen_fault_time)
 
     global _is_faulted
     _is_faulted = True
 
     due_date = datetime.now() + timedelta(0, chosen_fault_time)
-    scheduler.add_job(recover, 'date', run_date=due_date)
+    scheduler.add_job(notify_operator, 'date', run_date=due_date)
 
 
-def simulate_minimal_workload_of_staging_environment():
-    # min time measured with Locust in the staging environment
-    min_processing_time = 2
+def simulate_minimal_workload():
+    wait_time = current_model.min_processing_time_s
 
-    wait_time = min_processing_time
-
-    print("Waiting for {}".format(wait_time))
+    logger.debug("Waiting for {}".format(wait_time))
 
     sleep(wait_time)
 
     return True
 
 
-def simulate_workload_of_production_system():
+def simulate_workload_random():
     """
-    Simulate workload based on real processing times measured
-    in the production environment.
+    Simulate workload based on real processing times
+    randomly distributed between min and max processing time.
     """
 
-    print("Simulating workload")
+    min_processing_time = current_model.min_processing_time_s
 
-    # -- min and max times measured from 16561 requests --
-    min_processing_time = 6
-
-    # this very high time actually happens at night, when other processes,
-    # like the database backups database are executed
-    #max_processing_time = 2799
+    #max_processing_time = current_model.max_processing_time_s
     max_processing_time = 10  # for demonstration purposes
     # --
 
@@ -139,7 +175,7 @@ def simulate_workload_of_production_system():
     # that is not representative for the production system behavior
     random_processing_time = between(min_processing_time, max_processing_time)
 
-    print("Waiting for {}".format(random_processing_time))
+    logger.debug("Waiting for {}".format(random_processing_time))
 
     sleep(random_processing_time)
 
@@ -165,28 +201,28 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         request_path = self.path
 
-        print("\n----- Request Start ----->\n")
-        print("Request path:", request_path)
+        #print("\n----- Request Start ----->\n")
+        #print("Request path:", request_path)
 
         request_headers = self.headers
         content_length = request_headers.get('Content-Length')
         length = int(content_length) if content_length else 0
 
-        print("Content Length:", length)
-        print("Request headers:", request_headers)
-        print("Request payload:", self.rfile.read(length))
+        #print("Content Length:", length)
+        #print("Request headers:", request_headers)
+        #print("Request payload:", self.rfile.read(length))
 
         if is_faulted():
-            print("System faulted for {} s".format(chosen_fault_time))
+            #logger.warning("System faulted for {} s".format(chosen_fault_time))
             is_successful = False
         else:
             stopwatch = Stopwatch()
-            is_successful = simulate_minimal_workload_of_staging_environment()
-            #is_successful = simulate_minimal_workload_of_staging_system()
+            is_successful = simulate_minimal_workload()
+            #is_successful = simulate_workload_random()
             stopwatch.stop()
-            logger.info("Processing time: %s", stopwatch)
+            logger.info("Request execution time: %s", stopwatch)
 
-        print("<----- Request End -----\n")
+        #print("<----- Request End -----\n")
 
         self.send_response(200 if is_successful else 500)
         self.end_headers()
@@ -198,22 +234,29 @@ class RequestHandler(BaseHTTPRequestHandler):
 def main():
     scheduler.start()
 
-    #inject_a_fault_every_s_seconds(60)
-    inject_three_faults_in_a_row()
+    inject_a_fault_every_s_seconds(60)
+    #inject_three_faults_in_a_row()
 
     port = 1337
-    print('Listening on localhost:%s' % port)
+    logger.info('Listening on localhost:%s' % port)
     server = HTTPServer(('', port), RequestHandler)
     #server = ThreadingHTTPServer(('', port), RequestHandler)
     server.serve_forever()
 
 
 if __name__ == "__main__":
-    parser = OptionParser()
-    parser.usage = ("Creates an http-server that will echo out any GET or POST parameters\n"
-                    "Run:\n\n"
-                    "   reflect")
-    (options, args) = parser.parse_args()
+    parser = argparse.ArgumentParser(
+        description='Simulate an Alarm Receiving Software (ARS) based on the behavior of a real-world ARS.'
+    )
+    parser.add_argument('--prod', dest='workload_model', action='store_const',
+                        const="production", default="staging",
+                        help='simulate production workload (default: simulate staging workload)')
+
+    args = parser.parse_args()
+
+    current_model = model_production if args.workload_model == "production" else model_staging
+
+    logger.info("Workload to simulate: %s", args.workload_model)
 
     # initialize the random seed value to get reproducible random sequences
     seed(42)
