@@ -29,8 +29,8 @@ def readMeasurementsFromCsvAndAppendToList(path):
 def readResponseTimesFromLogFile(path):
     response_times = {}
 
-    if 'locust_log' not in path:
-        return response_times
+    # if 'locust_log' not in path:
+    #     return response_times
 
     with open(path) as logfile:
         for line in logfile:
