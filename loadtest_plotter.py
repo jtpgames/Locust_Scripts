@@ -1,12 +1,13 @@
 import csv
 import glob
 import os
-import re
 from datetime import datetime
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import readline
+
+from Common import readResponseTimesFromLogFile
 
 num_clients = []
 avg_time_allowed = []
@@ -24,25 +25,6 @@ def readMeasurementsFromCsvAndAppendToList(path):
         average_response_time.append(float(row['Average response time']) / 1000)
         min_response_time.append(float(row['Min response time']) / 1000)
         max_response_time.append(float(row['Max response time']) / 1000)
-
-
-def readResponseTimesFromLogFile(path):
-    response_times = {}
-
-    # if 'locust_log' not in path:
-    #     return response_times
-
-    with open(path) as logfile:
-        for line in logfile:
-            if 'Response time' not in line:
-                continue
-
-            time_stamp = datetime.strptime(re.search('\\[.*\\]', line).group(), '[%Y-%m-%d %H:%M:%S,%f]')
-            response_time = re.search('(?<=Response time\\s)\\d*', line).group()
-
-            response_times[time_stamp] = float(response_time) / 1000
-
-    return response_times
 
 
 def readMeasurementsFromLogFileAndAppendToList(path):
