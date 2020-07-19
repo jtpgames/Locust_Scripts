@@ -59,6 +59,9 @@ class ARSLogConverter:
                         )
                     )
 
+        self.commandDict.clear()
+        self.responseTimes.clear()
+
     @staticmethod
     def getThreadIDFromLine(line: str) -> int:
         tid = re.search(r"\[\d*\]", line).group()

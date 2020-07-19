@@ -76,19 +76,14 @@ def read_training_data(path):
     return timestamps, responsetimes
 
 
-max_response_time = 0.0
-
-
 def transform_training_data(timestamps, response_times):
     #unix_timestamps = map(lambda t: arrow.get(t).timestamp, timestamps)
-    unix_timestamps = map(lambda t: t.timestamp(), timestamps)
+    unix_timestamps = map(
+        lambda t: (t.second + t.minute * 60 + t.hour * 3600) / (24 * 3600),
+        map(lambda t: t.timetz(), timestamps)
+    )
 
-    global max_response_time
-    max_response_time = max(response_times)
-
-    print("max response time: {}".format(max_response_time))
-
-    normalized_response_times = map(lambda r: r / max_response_time, response_times)
+    normalized_response_times = map(lambda r: r / 1, response_times)
 
     x = np.array([list(unix_timestamps)]).T
     y = np.array([list(normalized_response_times)]).T
@@ -109,14 +104,14 @@ if __name__ == "__main__":
     n.feedforward()
 
     print(n.output)
-    print(n.output*max_response_time)
+    print(n.output)
 
-    # for i in range(10):
-    #     n.feedforward()
-    #     n.backprop()
-    #
-    # n.feedforward()
-    # print(n.output*max_response_time)
+    for i in range(100):
+        n.feedforward()
+        n.backprop()
+
+    n.feedforward()
+    print(n.output)
 
     # y = np.array([[0, 1, 1, 0]]).T
     #
