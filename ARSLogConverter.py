@@ -3,10 +3,27 @@ import re
 from datetime import datetime
 
 
-class ARSLogConverter:
-    commandDict = {}
+class ARSNumberOfActiveTransactionsTracker:
+    def __init__(self):
+        self.currentActiveTransactions = 0
 
-    responseTimes = []
+    def process_log_line(self, line: str):
+        if "CMD-START" in line:
+            self.currentActiveTransactions += 1
+        elif "CMD-ENDE" in line:
+            self.currentActiveTransactions -= 1
+
+    def reset(self):
+        self.currentActiveTransactions = 0
+
+
+class ARSLogConverter:
+
+    def __init__(self):
+        self.commandDict = {}
+
+        self.responseTimes = []
+        self.activeTransactionsTracker = ARSNumberOfActiveTransactionsTracker()
 
     def read(self, path: str):
 
@@ -34,6 +51,8 @@ class ARSLogConverter:
                     tid = self.getThreadIDFromLine(firstLine)
                     end_time = self.getTimeStampFromLine(firstLine)
 
+                    self.commandDict[tid]["activeTransactionsEnd"] = self.activeTransactionsTracker.currentActiveTransactions
+
                     start_time = self.commandDict[tid]["time"]
 
                     execution_time_ms = (end_time - start_time).total_seconds() * 1000
@@ -42,18 +61,22 @@ class ARSLogConverter:
                         {
                             "receivedAt": end_time,
                             "cmd": self.commandDict[tid]["cmd"],
+                            "activeTransactions": self.commandDict[tid]["activeTransactionsStart"],
                             "time": int(execution_time_ms)
                         })
 
                     self.commandDict.pop(tid)
+
+                self.activeTransactionsTracker.process_log_line(secondLine)
 
         print("Writing to ", targetPath)
         with open(targetPath, mode="w") as targetFile:
             for responseTime in self.responseTimes:
                 if "ID_REQ_KC_STORE7D3BPACKET" in responseTime["cmd"]:
                     targetFile.write(
-                        "{}\t{}:\t\tResponse time {} ms\n".format(
+                        "{}\t(AT: {})\t{}:\t\tResponse time {} ms\n".format(
                             responseTime["receivedAt"].strftime('[%Y-%m-%d %H:%M:%S,%f]'),
+                            responseTime["activeTransactions"],
                             responseTime["cmd"],
                             responseTime["time"]
                         )
@@ -61,6 +84,7 @@ class ARSLogConverter:
 
         self.commandDict.clear()
         self.responseTimes.clear()
+        self.activeTransactionsTracker.reset()
 
     @staticmethod
     def getThreadIDFromLine(line: str) -> int:
@@ -89,7 +113,12 @@ class ARSLogConverter:
 
         time_stamp = self.getTimeStampFromLine(line)
 
-        self.commandDict[tid] = {"time": time_stamp, "cmd": None}
+        self.commandDict[tid] = {
+            "time": time_stamp,
+            "cmd": None,
+            "activeTransactionsStart": self.activeTransactionsTracker.currentActiveTransactions,
+            "activeTransactionsEnd": 0
+        }
 
         return tid
 
