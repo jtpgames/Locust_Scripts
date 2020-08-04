@@ -8,18 +8,18 @@ from typing import Tuple
 from Common import get_timestamp_from_string, contains_timestamp_with_ms, dir_path, get_date_from_string
 
 
-class ARSNumberOfActiveTransactionsTracker:
+class NumberOfParallelCommandsTracker:
     def __init__(self):
-        self.currentActiveTransactions = 0
+        self.currentParallelCommands = 0
 
     def process_log_line(self, line: str):
         if "CMD-START" in line:
-            self.currentActiveTransactions += 1
+            self.currentParallelCommands += 1
         elif "CMD-ENDE" in line:
-            self.currentActiveTransactions -= 1
+            self.currentParallelCommands -= 1
 
     def reset(self):
-        self.currentActiveTransactions = 0
+        self.currentParallelCommands = 0
 
 
 class GSLogConverter:
@@ -27,14 +27,14 @@ class GSLogConverter:
     def __init__(self):
         self.startedCommands = {}
 
-        self.activeTransactionsTracker = ARSNumberOfActiveTransactionsTracker()
+        self.parallelCommandsTracker = NumberOfParallelCommandsTracker()
 
     def read(self, path: str):
 
         from pathlib import Path
         nameOfLogFile = Path(path).name
-        targetPath = Path(path)\
-            .with_name("Conv_{}".format(get_date_from_string(nameOfLogFile)))\
+        targetPath = Path(path) \
+            .with_name("Conv_{}".format(get_date_from_string(nameOfLogFile))) \
             .with_suffix(".log")
 
         print("Writing to ", targetPath)
@@ -64,17 +64,17 @@ class GSLogConverter:
                         continue
 
                     self.startedCommands[tid][
-                        "activeTransactionsEnd"] = self.activeTransactionsTracker.currentActiveTransactions
+                        "parallelCommandsEnd"] = self.parallelCommandsTracker.currentParallelCommands
 
                     start_time = self.startedCommands[tid]["time"]
 
                     execution_time_ms = (end_time - start_time).total_seconds() * 1000
 
-                    self.write_to_target_log(
+                    self.write_ARS_CMDs_to_target_log(
                         {
                             "receivedAt": end_time,
                             "cmd": self.startedCommands[tid]["cmd"],
-                            "activeTransactions": self.startedCommands[tid]["activeTransactionsStart"],
+                            "parallelRequests": self.startedCommands[tid]["parallelCommandsStart"],
                             "time": int(execution_time_ms)
                         },
                         targetFile
@@ -82,10 +82,10 @@ class GSLogConverter:
 
                     self.startedCommands.pop(tid)
 
-                self.activeTransactionsTracker.process_log_line(line)
+                self.parallelCommandsTracker.process_log_line(line)
 
         self.startedCommands.clear()
-        self.activeTransactionsTracker.reset()
+        self.parallelCommandsTracker.reset()
         targetFile.close()
 
     @staticmethod
@@ -111,26 +111,15 @@ class GSLogConverter:
 
     @staticmethod
     def write_to_target_log(data, target_file):
-        target_file.write(
-            "{}\t(AT: {})\t{}:\t\tResponse time {} ms\n".format(
-                data["receivedAt"].strftime('[%Y-%m-%d %H:%M:%S,%f]'),
-                data["activeTransactions"],
-                data["cmd"],
-                data["time"]
-            )
-        )
+        firstPart = f"[{str(data['receivedAt']):26}] (PR: {data['parallelRequests']:2})"
+        secondPart = f"{data['cmd']:35}:"
+        thirdPart = f"Response time {data['time']} ms"
+        target_file.write(f"{firstPart} {secondPart} {thirdPart}\n")
 
     @staticmethod
     def write_ARS_CMDs_to_target_log(data, target_file):
         if "ID_REQ_KC_STORE7D3BPACKET" in data["cmd"]:
-            target_file.write(
-                "{}\t(AT: {})\t{}:\t\tResponse time {} ms\n".format(
-                    data["receivedAt"].strftime('[%Y-%m-%d %H:%M:%S,%f]'),
-                    data["activeTransactions"],
-                    data["cmd"],
-                    data["time"]
-                )
-            )
+            GSLogConverter.write_to_target_log(data, target_file)
 
     @staticmethod
     def get_threadid_and_timestamp(line: str) -> Tuple[int, datetime]:
@@ -149,8 +138,8 @@ class GSLogConverter:
         self.startedCommands[tid] = {
             "time": timestamp,
             "cmd": None,
-            "activeTransactionsStart": self.activeTransactionsTracker.currentActiveTransactions,
-            "activeTransactionsEnd": 0
+            "parallelCommandsStart": self.parallelCommandsTracker.currentParallelCommands,
+            "parallelCommandsEnd": 0
         }
 
         return tid, timestamp
