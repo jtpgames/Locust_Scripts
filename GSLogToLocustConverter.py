@@ -57,7 +57,8 @@ class GSLogConverter:
 
                     if tid not in self.startedCommands:
                         print("Command ended without corresponding start log entry")
-                        print("Line: ", line)
+                        print("in file: ", logfile)
+                        print("on line: ", line)
                         print(self.startedCommands)
                         if not args.force:
                             input("Press ENTER to continue...")
@@ -84,6 +85,11 @@ class GSLogConverter:
 
                 self.parallelCommandsTracker.process_log_line(line)
 
+        if len(self.startedCommands) > 0:
+            print("Commands remaining")
+            print(self.startedCommands)
+            if not args.force:
+                input("Press ENTER to continue...")
         self.startedCommands.clear()
         self.parallelCommandsTracker.reset()
         targetFile.close()
@@ -154,17 +160,17 @@ class GSLogConverter:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Convert aggregated log files '
+    parser = argparse.ArgumentParser(description='Convert log files '
                                                  'of the GS legacy system '
                                                  'to our custom locust log file format.')
-    parser.add_argument('files',
+    parser.add_argument('--files', '-f',
                         type=str,
                         nargs='+',
                         help='the paths to the ARS log files')
     parser.add_argument('--directory', '-d',
                         type=dir_path,
                         help='the directory the log files are located in')
-    parser.add_argument('--force', '-f',
+    parser.add_argument('--force',
                         action='store_true',
                         help='ignore errors in the log files')
 

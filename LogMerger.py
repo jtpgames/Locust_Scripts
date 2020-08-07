@@ -8,7 +8,7 @@ from itertools import groupby
 from Common import dir_path, get_timestamp_from_string, get_date_from_string
 
 
-class LogAggregator:
+class LogMerger:
     @staticmethod
     def aggregate(group: str, similar_logfile_paths: list):
         def read_files(*filenames):
@@ -61,4 +61,4 @@ if __name__ == "__main__":
     for group, logfile in groupby(data, key=get_date_from_string):
         # omit the merged logs created by this script
         logfilesToAggregate = filter(lambda f: "Merged_" not in f, list(logfile))
-        LogAggregator.aggregate(group, list(logfilesToAggregate))
+        LogMerger.aggregate(group, list(logfilesToAggregate))
