@@ -46,7 +46,7 @@ class GSLogConverter:
 
             for line in logfile:
                 counter = counter + 1
-                if counter % 10000 == 0:
+                if counter % 20000 == 0:
                     print("Processed {} entries".format(counter))
 
                 if "CMD-START" in line:
@@ -75,7 +75,8 @@ class GSLogConverter:
                         {
                             "receivedAt": end_time,
                             "cmd": self.startedCommands[tid]["cmd"],
-                            "parallelRequests": self.startedCommands[tid]["parallelCommandsStart"],
+                            "parallelRequestsStart": self.startedCommands[tid]["parallelCommandsStart"],
+                            "parallelRequestsEnd": self.startedCommands[tid]["parallelCommandsEnd"],
                             "time": int(execution_time_ms)
                         },
                         targetFile
@@ -117,7 +118,9 @@ class GSLogConverter:
 
     @staticmethod
     def write_to_target_log(data, target_file):
-        firstPart = f"[{str(data['receivedAt']):26}] (PR: {data['parallelRequests']:2})"
+        receivedAt = data['receivedAt'].strftime('%Y-%m-%d %H:%M:%S,%f')
+
+        firstPart = f"[{receivedAt:26}] (PR: {data['parallelRequestsStart']:2}/{data['parallelRequestsEnd']:2})"
         secondPart = f"{data['cmd']:35}:"
         thirdPart = f"Response time {data['time']} ms"
         target_file.write(f"{firstPart} {secondPart} {thirdPart}\n")
