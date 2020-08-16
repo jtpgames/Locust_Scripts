@@ -105,6 +105,26 @@ class GSLogConverter:
         return tid
 
     @staticmethod
+    def get_threadid_from_line_optimized(line: str) -> int:
+        foundLeftBracket = False
+        tidString = []
+
+        for c in line:
+            if c == '[':
+                foundLeftBracket = True
+                continue
+            elif c == ']':
+                break
+
+            if foundLeftBracket:
+                tidString.append(c)
+
+        tidString = ''.join(tidString)
+        tid = int(tidString)
+
+        return tid
+
+    @staticmethod
     def get_timestamp_from_line(line: str) -> datetime:
         if contains_timestamp_with_ms(line):
             format_string = '%Y-%m-%d %H:%M:%S.%f'
@@ -134,7 +154,7 @@ class GSLogConverter:
     def get_threadid_and_timestamp(line: str) -> Tuple[int, datetime]:
         # format: [tid] yyyy-MM-dd hh-mm-ss.f
 
-        tid = GSLogConverter.get_threadid_from_line(line)
+        tid = GSLogConverter.get_threadid_from_line_optimized(line)
 
         timestamp = GSLogConverter.get_timestamp_from_line(line)
 

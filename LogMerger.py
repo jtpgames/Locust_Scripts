@@ -18,7 +18,7 @@ class LogMerger:
                 with open(filename, 'r') as file_obj:
                     for line in file_obj:
                         counter = counter + 1
-                        if counter % 10000 == 0:
+                        if counter % 20000 == 0:
                             print("Processed {} entries".format(counter))
 
                         yield line
@@ -39,7 +39,7 @@ class LogMerger:
         with open(targetPath, mode="w") as targetFile:
             counter = 0
             for line in result_file:
-                if counter % 10000 == 0:
+                if counter % 20000 == 0:
                     print("Written {} entries".format(counter))
                 targetFile.write(line)
                 counter += 1
@@ -48,11 +48,15 @@ class LogMerger:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Aggregate log files from different sources to a single log file per day.')
-    parser.add_argument('directory',
+    parser.add_argument('directory', '-d',
                         type=dir_path,
                         help='the directory the log files are located in')
 
     args = parser.parse_args()
+
+    if args.directory is None:
+        parser.print_help()
+        exit(1)
 
     logfiles = glob.glob(join(args.directory, "*.log"))
 
