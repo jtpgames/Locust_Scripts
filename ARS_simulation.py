@@ -17,14 +17,15 @@ from dataclasses import dataclass
 
 import logging
 
-fh = logging.FileHandler('ARS_simulation.log')
+fh = logging.FileHandler('ARS_simulation_{:%Y-%m-%d}.log'.format(datetime.now()))
 fh.setLevel(logging.DEBUG)
 
 sh = logging.StreamHandler(sys.stdout)
 
-logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s",
+logging.basicConfig(format="[%(thread)d] %(asctime)s.%(msecs)03d [%(levelname)s] %(message)s",
                     level=os.environ.get("LOGLEVEL", "DEBUG"),
-                    handlers=[fh, sh])
+                    handlers=[fh, sh],
+                    datefmt="%Y-%m-%d %H:%M:%S")
 
 logger = logging.getLogger('Audit')
 
@@ -201,16 +202,19 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         request_path = self.path
 
-        #print("\n----- Request Start ----->\n")
-        #print("Request path:", request_path)
+        logger.info("----- Request Start ----->")
+
+        cmdName = "ID_" + request_path.replace("/", "_")
+
+        logger.info("CMD-START: %s", cmdName)
 
         request_headers = self.headers
         content_length = request_headers.get('Content-Length')
         length = int(content_length) if content_length else 0
 
-        #print("Content Length:", length)
-        #print("Request headers:", request_headers)
-        #print("Request payload:", self.rfile.read(length))
+        logger.debug("Content Length: %s", length)
+        # logger.debug("Request headers: %s", request_headers)
+        # logger.debug("Request payload: %s", self.rfile.read(length))
 
         if is_faulted():
             #logger.warning("System faulted for {} s".format(chosen_fault_time))
@@ -222,7 +226,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             stopwatch.stop()
             logger.info("Request execution time: %s", stopwatch)
 
-        #print("<----- Request End -----\n")
+        logger.info("CMD-ENDE: %s", cmdName)
+        logger.info("<----- Request End -----")
 
         self.send_response(200 if is_successful else 500)
         self.end_headers()
