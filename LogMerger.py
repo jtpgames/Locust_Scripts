@@ -48,7 +48,7 @@ class LogMerger:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Aggregate log files from different sources to a single log file per day.')
-    parser.add_argument('directory', '-d',
+    parser.add_argument('--directory', '-d',
                         type=dir_path,
                         help='the directory the log files are located in')
 
