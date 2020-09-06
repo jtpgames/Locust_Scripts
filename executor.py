@@ -6,6 +6,8 @@ import platform
 import os
 import logging
 
+from Common import call_locust_with
+
 average_response_time = {}
 min_response_time = {}
 max_response_time = {}
@@ -41,32 +43,6 @@ def read_measurements_from_locust_csv_and_append_to_dictonaries(path, num_client
         max_response_time[num_clients] = float(row['Max response time'])
 
 
-def call_locust_with(clients, runtimeInMin):
-    logger = logging.getLogger('call_locust_with')
-
-    logger.info("Starting locust with (%s, %s)", clients, runtimeInMin)
-
-    if runtimeInMin > 0:
-        os.system(
-            f"locust -f {locust_script} \
-            --host={url} \
-            --no-web \
-            --csv=loadtest_{clients}_clients \
-            --clients={clients} --hatch-rate=1 \
-            --run-time={runtimeInMin}m \
-            --logfile locust_log.log"
-        )
-    else:
-        os.system(
-            f"locust -f {locust_script} \
-            --host={url} \
-            --no-web \
-            --csv=loadtest_{clients}_clients \
-            --clients={clients} --hatch-rate={clients} \
-            --logfile locust_log.log"
-        )
-
-
 if plt != "Windows":
     readline.set_completer_delims(' \t\n;')
     readline.parse_and_bind("tab: complete")
@@ -89,6 +65,6 @@ logging.basicConfig(format="%(asctime)s %(message)s",
                     handlers=[fh])
 
 if __name__ == "__main__":
-    call_locust_with(1, -1)
+    call_locust_with(locust_script, url, 1)
 
     read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{1}_clients_stats.csv", 1)

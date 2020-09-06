@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 from re import search
 from datetime import datetime
@@ -41,3 +42,29 @@ def readResponseTimesFromLogFile(path: str) -> Dict[datetime, float]:
             response_times[time_stamp] = float(response_time) / 1000
 
     return response_times
+
+
+def call_locust_with(locust_script, url, clients, runtime_in_min=-1):
+    logger = logging.getLogger('call_locust_with')
+
+    logger.info("Starting locust with (%s, %s)", clients, runtime_in_min)
+
+    if runtime_in_min > 0:
+        os.system(
+            f"locust -f {locust_script} \
+            --host={url} \
+            --no-web \
+            --csv=loadtest_{clients}_clients \
+            --clients={clients} --hatch-rate=1 \
+            --run-time={runtime_in_min}m \
+            --logfile locust_log_{clients}.log"
+        )
+    else:
+        os.system(
+            f"locust -f {locust_script} \
+            --host={url} \
+            --no-web \
+            --csv=loadtest_{clients}_clients \
+            --clients={clients} --hatch-rate={clients} \
+            --logfile locust_log.log"
+        )

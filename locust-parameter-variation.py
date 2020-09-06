@@ -8,6 +8,8 @@ import os
 import logging
 import time
 
+from Common import call_locust_with
+
 input_args = None
 
 plt = platform.system()
@@ -162,6 +164,6 @@ if __name__ == "__main__":
     if input_args.parametervariation:
         parameter_variation_loop()
     else:
-        call_locust_with(1, -1)
+        call_locust_with(locust_script, url, 1, -1)
 
         readMeasurementsFromCsvAndAppendToDictonaries(f"loadtest_{1}_clients_stats.csv", 1)
