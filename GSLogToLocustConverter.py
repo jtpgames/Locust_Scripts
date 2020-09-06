@@ -71,17 +71,24 @@ class GSLogConverter:
 
                     execution_time_ms = (end_time - start_time).total_seconds() * 1000
 
-                    self.write_ARS_CMDs_to_target_log(
+                    self.write_to_target_log(
                         {
                             "receivedAt": end_time,
                             "cmd": self.startedCommands[tid]["cmd"],
                             "parallelRequestsStart": self.startedCommands[tid]["parallelCommandsStart"],
                             "parallelRequestsEnd": self.startedCommands[tid]["parallelCommandsEnd"],
+                            "parallelCommandsFinished": self.startedCommands[tid]["parallelCommandsFinished"],
                             "time": int(execution_time_ms)
                         },
                         targetFile
                     )
 
+                    # thread <tid> finished his command,
+                    # increment counter of other commands
+                    for cmd in self.startedCommands.values():
+                        cmd["parallelCommandsFinished"] = cmd["parallelCommandsFinished"] + 1
+
+                    # ...remove from startedCommands
                     self.startedCommands.pop(tid)
 
                 self.parallelCommandsTracker.process_log_line(line)
@@ -140,7 +147,10 @@ class GSLogConverter:
     def write_to_target_log(data, target_file):
         receivedAt = data['receivedAt'].strftime('%Y-%m-%d %H:%M:%S,%f')
 
-        firstPart = f"[{receivedAt:26}] (PR: {data['parallelRequestsStart']:2}/{data['parallelRequestsEnd']:2})"
+        firstPart = f"[{receivedAt:26}] " \
+                    f"(PR: {data['parallelRequestsStart']:2}/" \
+                    f"{data['parallelRequestsEnd']:2}/" \
+                    f"{data['parallelCommandsFinished']:2})"
         secondPart = f"{data['cmd']:35}:"
         thirdPart = f"Response time {data['time']} ms"
         target_file.write(f"{firstPart} {secondPart} {thirdPart}\n")
@@ -168,7 +178,8 @@ class GSLogConverter:
             "time": timestamp,
             "cmd": None,
             "parallelCommandsStart": self.parallelCommandsTracker.currentParallelCommands,
-            "parallelCommandsEnd": 0
+            "parallelCommandsEnd": 0,
+            "parallelCommandsFinished": 0
         }
 
         return tid, timestamp
