@@ -1,5 +1,6 @@
 import argparse
 import glob
+import os
 from os import SEEK_SET
 from os.path import join
 
@@ -68,10 +69,11 @@ if __name__ == "__main__":
     logfilesToConvert = args.files if args.files is not None else []
 
     if args.directory is not None:
-        logfiles = glob.glob(join(args.directory, "WSCmd_*.log"))
+        logfiles = glob.glob(join(args.directory, "WSCmd*.log"))
         logfilesToConvert.extend(logfiles)
 
     print("Logs to convert: " + str(logfilesToConvert))
 
     for path in logfilesToConvert:
         fix_log(path)
+        os.remove(path)
