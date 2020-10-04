@@ -10,7 +10,7 @@ import time
 
 from Common import call_locust_with
 
-input_args = None
+input_args = argparse.Namespace()
 
 plt = platform.system()
 
@@ -18,7 +18,7 @@ if plt != "Windows":
     import readline
 
 
-def completePython(text, state):
+def complete_python(text, state):
     # replace ~ with the user's home dir. See https://docs.python.org/2/library/os.path.html
     if '~' in text:
         text = os.path.expanduser('~')
@@ -33,7 +33,7 @@ def completePython(text, state):
 if plt != "Windows":
     readline.set_completer_delims(' \t\n;')
     readline.parse_and_bind("tab: complete")
-    readline.set_completer(completePython)
+    readline.set_completer(complete_python)
 
 locust_script = input('Path to the Locust script: ')
 
@@ -51,33 +51,6 @@ logging.basicConfig(format="%(asctime)s %(message)s",
                     level=os.environ.get("LOGLEVEL", "INFO"),
                     handlers=[fh])
 
-
-def call_locust_with(clients, runtimeInMin):
-    logger = logging.getLogger('call_locust_with')
-
-    logger.info("Starting locust with (%s, %s)", clients, runtimeInMin)
-
-    if runtimeInMin > 0:
-        os.system(
-            f"locust -f {locust_script} \
-            --host={url} \
-            --no-web \
-            --csv=loadtest_{clients}_clients \
-            --clients={clients} --hatch-rate=1 \
-            --run-time={runtimeInMin}m \
-            --logfile locust_log_{clients}.log"
-        )
-    else:
-        os.system(
-            f"locust -f {locust_script} \
-            --host={url} \
-            --no-web \
-            --csv=loadtest_{clients}_clients \
-            --clients={clients} --hatch-rate={clients} \
-            --logfile locust_log.log"
-        )
-
-
 avg_time_allowed_in_s = 10
 max_time_allowed_in_s = 30
 average_response_time = {}
@@ -85,7 +58,7 @@ min_response_time = {}
 max_response_time = {}
 
 
-def readMeasurementsFromCsvAndAppendToDictonaries(path, num_clients):
+def read_measurements_from_locust_csv_and_append_to_dictonaries(path, num_clients):
     logger = logging.getLogger('readMeasurementsFromCsvAndAppendToDictonaries')
 
     with open(path, newline='') as csvfile:
@@ -133,17 +106,20 @@ def parameter_variation_loop():
 
     logger.info(f"Starting performance test.")
 
+    is_first_run = True
     while config_complies_with_real_time_requirements(num_clients):
+        if not is_first_run:
+            logger.info("Sleeping for 2 minutes ...")
+            time.sleep(2 * 60)
+        is_first_run = False
+
         # start with one client, then increase linearly (multiplier, 2*multiplier, ... x*multiplier)
         num_clients = max(x * multiplier, 1)
         x += 1
 
-        call_locust_with(num_clients, 2)
+        call_locust_with(locust_script, url, num_clients, runtime_in_min=2)
 
-        readMeasurementsFromCsvAndAppendToDictonaries(f"loadtest_{num_clients}_clients_stats.csv", num_clients)
-
-        logger.info("Sleeping for 2 minutes ...")
-        time.sleep(2 * 60)
+        read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv", num_clients)
 
     logger.info(f"Finished performance test. System failed at {num_clients}")
 
@@ -164,6 +140,6 @@ if __name__ == "__main__":
     if input_args.parametervariation:
         parameter_variation_loop()
     else:
-        call_locust_with(locust_script, url, 1, -1)
+        call_locust_with(locust_script, url, clients=1)
 
-        readMeasurementsFromCsvAndAppendToDictonaries(f"loadtest_{1}_clients_stats.csv", 1)
+        read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{1}_clients_stats.csv", 1)
