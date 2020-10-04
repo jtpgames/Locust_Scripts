@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 # Simulates an ARS with workloads measured in a productive environment.
+# Uncomment the lines marked with MASCOTS2020, in order to produce similar results as in our paper.
 # Based on https://gist.github.com/huyng/814831 Written by Nathan Hamiel (2010)
+
 import os
+import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler, ThreadingHTTPServer
 import argparse
 from random import random, seed
@@ -34,6 +37,17 @@ time_of_last_fault = datetime.now()
 time_of_recovery = datetime.now()
 chosen_fault_time: float = 0
 _is_faulted = False
+
+
+def synchronized(func):
+
+    func.__lock__ = threading.Lock()
+
+    def synced_func(*args, **kws):
+        with func.__lock__:
+            return func(*args, **kws)
+
+    return synced_func
 
 
 @dataclass
@@ -150,6 +164,7 @@ def simulate_fault():
     scheduler.add_job(notify_operator, 'date', run_date=due_date)
 
 
+@synchronized
 def simulate_minimal_workload():
     wait_time = current_model.min_processing_time_s
 
@@ -160,27 +175,116 @@ def simulate_minimal_workload():
     return True
 
 
-def simulate_workload_random():
+functionsLocks = {}
+
+
+def simulate_workload_random(function: str):
     """
     Simulate workload based on real processing times
     randomly distributed between min and max processing time.
     """
 
-    min_processing_time = current_model.min_processing_time_s
+    if function not in functionsLocks:
+        functionsLocks[function] = threading.Lock()
 
-    #max_processing_time = current_model.max_processing_time_s
-    max_processing_time = 10  # for demonstration purposes
-    # --
+    lock = functionsLocks[function]
 
-    # for simplicity we just take a random distribution
-    # that is not representative for the production system behavior
-    random_processing_time = between(min_processing_time, max_processing_time)
+    with lock:
+        # min_processing_time = current_model.min_processing_time_s
+        min_processing_time = 0.2  # for demonstration purposes
 
-    logger.debug("Waiting for {}".format(random_processing_time))
+        # max_processing_time = current_model.max_processing_time_s
+        max_processing_time = current_model.min_processing_time_s  # for demonstration purposes
+        # --
 
-    sleep(random_processing_time)
+        # for simplicity we just take a random distribution
+        # that is not representative for the production system behavior
+        random_processing_time = between(min_processing_time, max_processing_time)
+
+        logger.debug("Waiting for {}".format(random_processing_time))
+
+        sleep(random_processing_time)
+
+        return True
+
+
+number_of_parallel_requests_pending = 0
+startedCommands = {}
+
+
+def simulate_workload_using_linear_regression(function: str):
+    global number_of_parallel_requests_pending
+
+    number_of_parallel_requests_at_beginning = number_of_parallel_requests_pending
+    number_of_parallel_requests_pending = number_of_parallel_requests_pending + 1
+
+    tid = threading.get_ident()
+
+    startedCommands[tid] = {
+        "cmd": function,
+        "parallelCommandsStart": number_of_parallel_requests_at_beginning,
+        "parallelCommandsFinished": 0
+    }
+
+    # logger.debug(startedCommands)
+
+    from sklearn.linear_model import LinearRegression
+    from numpy import array
+
+    model = LinearRegression()
+
+    # params for min lr
+    # model.coef_ = array([0.98175843, 0.98175843, 0.]).reshape(1, -1)
+    # model.intercept_ = 1.6310695038160574
+    # params for rand lr
+    model.coef_ = array([0.54791364, 0.54791364, 0.]).reshape(1, -1)
+    model.intercept_ = 1.1516690942409529
+    # params for legacy system lr
+    # model.coef_ = array([-4.51169153e-03, 5.65208275e-02, -6.27308831e-06]).reshape(1, -1)
+    # model.intercept_ = 0.015465490539769639
+
+    sleep_time_to_use = predict_sleep_time(model, tid)
+    # logger.debug("Waiting for {}".format(sleep_time_to_use))
+    sleep(sleep_time_to_use)
+
+    sleep_time_last_time = sleep_time_to_use
+    while True:
+        sleep_time_test = predict_sleep_time(model, tid)
+        if sleep_time_test <= sleep_time_last_time:
+            break
+        else:
+            sleep_time_to_use = sleep_time_test - sleep_time_last_time
+
+        sleep_time_last_time = sleep_time_test
+        # logger.debug("Waiting for {}".format(sleep_time_to_use))
+        sleep(sleep_time_to_use)
+
+    number_of_parallel_requests_pending = number_of_parallel_requests_pending - 1
+
+    startedCommands.pop(tid)
+
+    for cmd in startedCommands.values():
+        cmd["parallelCommandsFinished"] = cmd["parallelCommandsFinished"] + 1
+
+    # logger.debug(startedCommands)
 
     return True
+
+
+def predict_sleep_time(model, tid):
+    from numpy import array
+
+    X = array([startedCommands[tid]["parallelCommandsStart"],
+               startedCommands[tid]["parallelCommandsFinished"],
+               0]) \
+        .reshape(1, -1)
+
+    y = model.predict(X)
+
+    y_value = y[0, 0]
+    y_value = max(0, y_value)
+
+    return y_value
 
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -217,12 +321,16 @@ class RequestHandler(BaseHTTPRequestHandler):
         # logger.debug("Request payload: %s", self.rfile.read(length))
 
         if is_faulted():
-            #logger.warning("System faulted for {} s".format(chosen_fault_time))
+            # logger.warning("System faulted for {} s".format(chosen_fault_time))
             is_successful = False
         else:
             stopwatch = Stopwatch()
-            is_successful = simulate_minimal_workload()
-            #is_successful = simulate_workload_random()
+
+            # -- MASCOTS2020 --
+            # is_successful = simulate_minimal_workload()
+            # --
+            is_successful = simulate_workload_random(cmdName)
+            # is_successful = simulate_workload_using_linear_regression(cmdName)
             stopwatch.stop()
             logger.info("Request execution time: %s", stopwatch)
 
@@ -239,13 +347,13 @@ class RequestHandler(BaseHTTPRequestHandler):
 def main():
     scheduler.start()
 
-    inject_a_fault_every_s_seconds(60)
-    #inject_three_faults_in_a_row()
+    # inject_a_fault_every_s_seconds(60)
+    #MASCOTS2020: inject_three_faults_in_a_row()
 
     port = 1337
     logger.info('Listening on localhost:%s' % port)
-    server = HTTPServer(('', port), RequestHandler)
-    #server = ThreadingHTTPServer(('', port), RequestHandler)
+    #server = HTTPServer(('', port), RequestHandler)
+    server = ThreadingHTTPServer(('', port), RequestHandler)
     server.serve_forever()
 
 
