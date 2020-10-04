@@ -1,5 +1,6 @@
 import argparse
 import glob
+import os
 from os.path import join
 
 from Common import dir_path
@@ -53,3 +54,4 @@ if __name__ == "__main__":
 
     for path in logfilesToConvert:
         merge_first_and_second_line(path)
+        os.remove(path)
