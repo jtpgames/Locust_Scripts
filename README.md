@@ -15,11 +15,10 @@ TODOs
 Locust Performance Testing Infrastructure
 ---
 
-Basically, the idea behind our performance testing infrastructure is to have three decoupled components, 
-Python scripts in our case, that together allow to:
+The idea behind our performance testing infrastructure is to have decoupled components, Python scripts in our case, that together allow to:
 
 1. reproducible execute a load testing tool with a set of parameters for a particular experiment,
-2. evaluate the performance measurements assisted by visualizations.
+2. evaluate the performance measurements assisted by visualizations or automatic evaluators.
 
 Generally, we have four types of components in our infrastructure:
 
