@@ -7,11 +7,10 @@
 TODOs
 --
 - [ ] Reference to published paper or online version of it
-- [ ] Reference to GS company group
 - [ ] loadtest_plotter.py: Cleanup and reading data from files
-- [ ] ARS_simulation.py: Cleanup, documentation and control workloads 
-and parameters of the simulation model through CLI
+- [ ] ARS_simulation.py: Cleanup, documentation and control workloads and parameters of the simulation model through CLI
 - [ ] locust-parameter-variation.py: Cleanup and Documentation
+- [ ] Move the files into subfolders (Executors, Load Testers, Evaluators, Systems under Test)
 
 Locust Performance Testing Infrastructure
 ---
@@ -25,10 +24,8 @@ Python scripts in our case, that together allow to:
 Generally, we have four types of components in our infrastructure:
 
 * Executors: execute a particular Load Tester as long as the Load Tester provides a CLI or an API;
-* Load Testers: execute the load test, parametrized with values given by an Executor. 
-Have to output a logfile containing the response times;
-* Evaluators: read the logfile, plot at least the response times, 
-and the performance requirements the target system has to comply with.
+* Load Testers: execute the load test, parametrized with values given by an Executor. Have to output a logfile containing the response times;
+* Evaluators: postprocess the logfile and for example plot the response times;
 * Systems under Test (SUTs): Target systems we want to test. 
 Usually, the target systems will be external systems, e.g., web servers. 
 In our case, we build software that simulates the behavior of a real system, 
