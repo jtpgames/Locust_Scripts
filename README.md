@@ -7,28 +7,24 @@
 TODOs
 --
 - [ ] Reference to published paper or online version of it
-- [ ] Reference to GS company group
 - [ ] loadtest_plotter.py: Cleanup and reading data from files
-- [ ] ARS_simulation.py: Cleanup, documentation and control workloads 
-and parameters of the simulation model through CLI
+- [ ] ARS_simulation.py: Cleanup, documentation and control workloads and parameters of the simulation model through CLI
 - [ ] locust-parameter-variation.py: Cleanup and Documentation
+- [ ] Move the files into subfolders (Executors, Load Testers, Evaluators, Systems under Test)
 
 Locust Performance Testing Infrastructure
 ---
 
-Basically, the idea behind our performance testing infrastructure is to have three decoupled components, 
-Python scripts in our case, that together allow to:
+The idea behind our performance testing infrastructure is to have decoupled components, Python scripts in our case, that together allow to:
 
 1. reproducible execute a load testing tool with a set of parameters for a particular experiment,
-2. evaluate the performance measurements assisted by visualizations.
+2. evaluate the performance measurements assisted by visualizations or automatic evaluators.
 
 Generally, we have four types of components in our infrastructure:
 
 * Executors: execute a particular Load Tester as long as the Load Tester provides a CLI or an API;
-* Load Testers: execute the load test, parametrized with values given by an Executor. 
-Have to output a logfile containing the response times;
-* Evaluators: read the logfile, plot at least the response times, 
-and the performance requirements the target system has to comply with.
+* Load Testers: execute the load test, parametrized with values given by an Executor. Have to output a logfile containing the response times;
+* Evaluators: postprocess the logfile and for example plot the response times;
 * Systems under Test (SUTs): Target systems we want to test. 
 Usually, the target systems will be external systems, e.g., web servers. 
 In our case, we build software that simulates the behavior of a real system, 
