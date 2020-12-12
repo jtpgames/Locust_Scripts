@@ -51,7 +51,7 @@ def synchronized(func):
 
 
 @dataclass
-class WorkloadModel:
+class PerformanceModel:
     operator_reaction_time_s: float
     ars_recovery_time_s: float
     fault_detection_time_range_s: tuple
@@ -74,12 +74,12 @@ class WorkloadModel:
 
 # 2 sec min time measured with Locust in the staging environment,
 # 10 sec max time is just for demonstration purposes
-model_staging = WorkloadModel(1, 0.5, (26, 34), 2, 2, 10)
+model_staging = PerformanceModel(1, 0.5, (26, 34), 2, 2, 10)
 
 # -- min and max processing times of production environment measured from 16561 requests --
 # this very high time actually happens at night, when other processes,
 # like the database backups database are executed.
-model_production = WorkloadModel(1, 0.5, (26, 34), 2, 6, 2799)
+model_production = PerformanceModel(1, 0.5, (26, 34), 2, 6, 2799)
 current_model = model_staging
 
 
@@ -234,14 +234,14 @@ def simulate_workload_using_linear_regression(function: str):
     model = LinearRegression()
 
     # params for min lr
-    # model.coef_ = array([0.98175843, 0.98175843, 0.]).reshape(1, -1)
-    # model.intercept_ = 1.6310695038160574
+    # model.coef_ = array([-0.00104812, 0., 0.99484544, 0.99484544, 0.]).reshape(1, -1)
+    # model.intercept_ = 67.340085614049
     # params for rand lr
-    model.coef_ = array([0.54791364, 0.54791364, 0.]).reshape(1, -1)
-    model.intercept_ = 1.1516690942409529
+    model.coef_ = array([0.00255708, 0., 0.51920316, 0.51920316, 0.]).reshape(1, -1)
+    model.intercept_ = -173.83221009666104
     # params for legacy system lr
-    # model.coef_ = array([-4.51169153e-03, 5.65208275e-02, -6.27308831e-06]).reshape(1, -1)
-    # model.intercept_ = 0.015465490539769639
+    # model.coef_ = array([-9.58247505e-08, 1.82118045e-03, 1.35136687e-02, 1.30455746e-01, -2.47121740e-04]).reshape(1, -1)
+    # model.intercept_ = 0.0031715041920469464
 
     sleep_time_to_use = predict_sleep_time(model, tid)
     # logger.debug("Waiting for {}".format(sleep_time_to_use))
