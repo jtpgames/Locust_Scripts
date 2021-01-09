@@ -53,9 +53,9 @@ def call_locust_with(locust_script, url, clients, runtime_in_min=-1):
         os.system(
             f"locust -f {locust_script} \
             --host={url} \
-            --no-web \
+            --headless \
             --csv=loadtest_{clients}_clients \
-            --clients={clients} --hatch-rate=1 \
+            --users={clients} --spawn-rate=1 \
             --run-time={runtime_in_min}m \
             --logfile locust_log_{clients}.log"
         )
@@ -63,8 +63,8 @@ def call_locust_with(locust_script, url, clients, runtime_in_min=-1):
         os.system(
             f"locust -f {locust_script} \
             --host={url} \
-            --no-web \
+            --headless \
             --csv=loadtest_{clients}_clients \
-            --clients={clients} --hatch-rate={clients} \
+            --users={clients} --spawn-rate={clients} \
             --logfile locust_log.log"
         )

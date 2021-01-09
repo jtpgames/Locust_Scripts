@@ -1,14 +1,11 @@
 #!/usr/bin/env python
-import time
-
-from locust import Locust, TaskSet, task, events, between
-
 import json
-import requests
-
 import logging
-
+import time
 from abc import ABC, abstractmethod
+
+import requests
+from locust import TaskSet, task, events, between, User
 
 
 class AlarmDeviceBehavior(TaskSet):
@@ -83,12 +80,27 @@ class RepeatingHttpClient(RepeatingClient):
         return response, successfully_sent
 
 
-class RepeatingHttpLocust(Locust):
+class RepeatingHttpLocust(User):
+    abstract = True
+
     def __init__(self, *args, **kwargs):
         super(RepeatingHttpLocust, self).__init__(*args, **kwargs)
         self.client = RepeatingHttpClient(self.host)
 
 
 class AlarmDevice(RepeatingHttpLocust):
-    task_set = AlarmDeviceBehavior
     wait_time = between(1, 1)
+
+    def send_alarm(self):
+        json_msg = {
+            'id': "070010",
+            'body': "alarm"
+        }
+
+        json_string = json.dumps(json_msg)
+
+        response = self.client.send("/fake_call", json_msg)
+
+    @task(1)
+    def fake_alarm(self):
+        self.send_alarm()
