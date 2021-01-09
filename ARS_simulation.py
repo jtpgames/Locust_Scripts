@@ -40,7 +40,6 @@ _is_faulted = False
 
 
 def synchronized(func):
-
     func.__lock__ = threading.Lock()
 
     def synced_func(*args, **kws):
@@ -59,6 +58,7 @@ class PerformanceModel:
 
     min_processing_time_s: float
     max_processing_time_s: float
+
 
 # -- Fault Management Model --
 # (26, 34) are the minimum and maximum times,
@@ -146,7 +146,7 @@ def simulate_fault():
     logger.debug("chosen_fault_time: %f", chosen_fault_time)
 
     # + delay until check
-    chosen_fault_time += 2*(current_model.this_ARS_number_in_the_server_list-1)
+    chosen_fault_time += 2 * (current_model.this_ARS_number_in_the_server_list - 1)
 
     logger.debug("# + delay until check: %f", chosen_fault_time)
 
@@ -234,11 +234,11 @@ def simulate_workload_using_linear_regression(function: str):
     model = LinearRegression()
 
     # params for min lr
-    # model.coef_ = array([-0.00104812, 0., 0.99484544, 0.99484544, 0.]).reshape(1, -1)
-    # model.intercept_ = 67.340085614049
+    model.coef_ = array([-0.00104812, 0., 0.99484544, 0.99484544, 0.]).reshape(1, -1)
+    model.intercept_ = 67.340085614049
     # params for rand lr
-    model.coef_ = array([0.00255708, 0., 0.51920316, 0.51920316, 0.]).reshape(1, -1)
-    model.intercept_ = -173.83221009666104
+    # model.coef_ = array([0.00255708, 0., 0.51920316, 0.51920316, 0.]).reshape(1, -1)
+    # model.intercept_ = -173.83221009666104
     # params for legacy system lr
     # model.coef_ = array([-9.58247505e-08, 1.82118045e-03, 1.35136687e-02, 1.30455746e-01, -2.47121740e-04]).reshape(1, -1)
     # model.intercept_ = 0.0031715041920469464
@@ -274,7 +274,17 @@ def simulate_workload_using_linear_regression(function: str):
 def predict_sleep_time(model, tid):
     from numpy import array
 
-    X = array([startedCommands[tid]["parallelCommandsStart"],
+    now = datetime.now()
+
+    time = now.timetz()
+    milliseconds = time.microsecond / 1000000
+    time_of_day_in_seconds = milliseconds + time.second + time.minute * 60 + time.hour * 3600
+
+    weekday = now.weekday()
+
+    X = array([time_of_day_in_seconds,
+               weekday,
+               startedCommands[tid]["parallelCommandsStart"],
                startedCommands[tid]["parallelCommandsFinished"],
                0]) \
         .reshape(1, -1)
@@ -329,8 +339,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             # -- MASCOTS2020 --
             # is_successful = simulate_minimal_workload()
             # --
-            is_successful = simulate_workload_random(cmdName)
-            # is_successful = simulate_workload_using_linear_regression(cmdName)
+            # is_successful = simulate_workload_random(cmdName)
+            is_successful = simulate_workload_using_linear_regression(cmdName)
             stopwatch.stop()
             logger.info("Request execution time: %s", stopwatch)
 
@@ -348,11 +358,11 @@ def main():
     scheduler.start()
 
     # inject_a_fault_every_s_seconds(60)
-    #MASCOTS2020: inject_three_faults_in_a_row()
+    # MASCOTS2020: inject_three_faults_in_a_row()
 
     port = 1337
     logger.info('Listening on localhost:%s' % port)
-    #server = HTTPServer(('', port), RequestHandler)
+    # server = HTTPServer(('', port), RequestHandler)
     server = ThreadingHTTPServer(('', port), RequestHandler)
     server.serve_forever()
 
