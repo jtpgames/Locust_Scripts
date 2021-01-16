@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Simulates an ARS with workloads measured in a productive environment.
 # Uncomment the lines marked with MASCOTS2020, in order to produce similar results as in our paper.
-# Based on https://gist.github.com/huyng/814831 Written by Nathan Hamiel (2010)
+# HTTPServer based on https://gist.github.com/huyng/814831 Written by Nathan Hamiel (2010)
 
 import os
 import threading
@@ -50,7 +50,7 @@ def synchronized(func):
 
 
 @dataclass
-class PerformanceModel:
+class PredictiveModel:
     operator_reaction_time_s: float
     ars_recovery_time_s: float
     fault_detection_time_range_s: tuple
@@ -65,7 +65,7 @@ class PerformanceModel:
 # the fault detection mechanism needs to detect a fault,
 # based on the real-world fault detection mechanism.
 # For every ARS running in the system, we have additional 2 seconds,
-# so we include the position of the ARS in the "check list", so account for that.
+# so we include the position of the ARS in the "check list", to account for that.
 #
 # In addition to that, we have operator time---the time an operator needs to begin his work---
 # and recovery time---the time the recovery action requires, e.g., how much time it takes to restart the ARS.
@@ -74,12 +74,12 @@ class PerformanceModel:
 
 # 2 sec min time measured with Locust in the staging environment,
 # 10 sec max time is just for demonstration purposes
-model_staging = PerformanceModel(1, 0.5, (26, 34), 2, 2, 10)
+model_staging = PredictiveModel(1, 0.5, (26, 34), 2, 2, 10)
 
 # -- min and max processing times of production environment measured from 16561 requests --
 # this very high time actually happens at night, when other processes,
 # like the database backups database are executed.
-model_production = PerformanceModel(1, 0.5, (26, 34), 2, 6, 2799)
+model_production = PredictiveModel(1, 0.5, (26, 34), 2, 6, 2799)
 current_model = model_staging
 
 
@@ -90,12 +90,15 @@ def between(min, max):
 def notify_operator():
     logger.debug("operator reaction time: %f", current_model.operator_reaction_time_s)
 
+    # Simulate the time it takes until an operator reacts to the notification
+    # we call this operator reaction time
     due_date = datetime.now() + timedelta(0, current_model.operator_reaction_time_s)
     scheduler.add_job(recover, 'date', run_date=due_date)
 
 
 def recover():
-    # Simulate recovery action time
+    # Simulate the time an operator needs to perform a recovery action
+    # we call this recovery action time
     sleep(current_model.ars_recovery_time_s)
 
     global _is_faulted
@@ -139,13 +142,16 @@ def simulate_fault():
 
     global chosen_fault_time
 
-    # fault detection time
+    # fault detection time:
+    # indicates how long the fault detection mechanism requires to detect a fault
     chosen_fault_time = between(current_model.fault_detection_time_range_s[0],
                                 current_model.fault_detection_time_range_s[1])
 
     logger.debug("chosen_fault_time: %f", chosen_fault_time)
 
     # + delay until check
+    # the fault detection mechanism needs more time depending on the
+    # position of the ARS in the "checklist".
     chosen_fault_time += 2 * (current_model.this_ARS_number_in_the_server_list - 1)
 
     logger.debug("# + delay until check: %f", chosen_fault_time)
@@ -166,6 +172,11 @@ def simulate_fault():
 
 @synchronized
 def simulate_minimal_workload():
+    """
+    Using this function we simulate an M/M/1 queuing system
+    because only one thread executes the function and the others
+    wait in a queue implicitly implemented by the synchronized annotation.
+    """
     wait_time = current_model.min_processing_time_s
 
     logger.debug("Waiting for {}".format(wait_time))
@@ -182,6 +193,11 @@ def simulate_workload_random(function: str):
     """
     Simulate workload based on real processing times
     randomly distributed between min and max processing time.
+
+    Using this we have an M/M/c queuing system where c is the number
+    of different requests the ARS can execute.
+    That means that the same requests cannot be executed in parallel
+    but different requests are executed in parallel.
     """
 
     if function not in functionsLocks:
@@ -213,6 +229,11 @@ startedCommands = {}
 
 
 def simulate_workload_using_linear_regression(function: str):
+    """
+    This function sleeps for the amount of time predicted
+    by a linear regression model.
+    """
+
     global number_of_parallel_requests_pending
 
     number_of_parallel_requests_at_beginning = number_of_parallel_requests_pending

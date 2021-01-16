@@ -5,5 +5,8 @@ locust==1.4.1
 APScheduler~=3.6.3
 numpy~=1.17.2
 arrow~=0.15.7
-scikit-learn==0.23.1
+scikit-learn==0.24.0
+# onnx==1.8.0
+# onnxruntime==1.6.0
+# skl2onnx==1.7.0
 pandas==1.0.5
