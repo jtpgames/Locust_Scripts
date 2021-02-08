@@ -1,9 +1,3 @@
----
-
-**This project is WIP**
----
----
-
 TODOs
 --
 - [x] Reference to published paper or online version of it
