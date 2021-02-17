@@ -3,13 +3,13 @@ TODOs
 - [x] Reference to published paper or online version of it
 - [ ] loadtest_plotter.py: Cleanup and reading data from files
 - [ ] ARS_simulation.py: Cleanup, documentation and control workloads and parameters of the simulation model through CLI
-- [ ] locust-parameter-variation.py: Cleanup and Documentation
+- [x] locust-parameter-variation.py: Cleanup and Documentation
 - [ ] Move the files into subfolders (Executors, Load Testers, Evaluators, Systems under Test)
 
 Locust Performance Testing Infrastructure
 ---
 
-In [1](https://www.doi.org/10.1007/978-3-030-68110-4_9) we introduced a 
+In [[1]](https://www.doi.org/10.1007/978-3-030-68110-4_9) we introduced a 
 generic performance testing infrastructure and used it in an industrial case study. 
 Our idea is to have decoupled components, 
 Python scripts in our case, that together allow to:
@@ -27,7 +27,7 @@ Usually, the target systems will be external systems, e.g., web servers.
 In our case, we build software that simulates the behavior of a real system, 
 in order to provide the means for others to roughly reproduce our experiments.
 
-More details about our generic performance testing infrastructure can be found in our paper[1](https://www.doi.org/10.1007/978-3-030-68110-4_9).
+More details about our generic performance testing infrastructure can be found in our paper[[1]](https://www.doi.org/10.1007/978-3-030-68110-4_9).
 
 This repository contains the aforementioned Python scripts:
 

@@ -142,4 +142,4 @@ if __name__ == "__main__":
     else:
         call_locust_with(locust_script, url, clients=1)
 
-        read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{1}_clients_stats.csv", 1)
+        read_measurements_from_locust_csv_and_append_to_dictonaries("loadtest_1_clients_stats.csv", 1)
