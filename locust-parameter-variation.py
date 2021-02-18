@@ -8,7 +8,7 @@ import os
 import logging
 import time
 
-from Common import call_locust_with
+from common.Common import call_locust_with
 
 input_args = argparse.Namespace()
 

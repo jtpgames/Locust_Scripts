@@ -3,14 +3,9 @@ Don't take this class seriously, first, I have to learn how to use neural networ
 because I have no clue about machine learning :)
 """
 
-
-from datetime import datetime
-
-import arrow as arrow
 import numpy as np
-import sys
 
-from Common import readResponseTimesFromLogFile
+from common.Common import readResponseTimesFromLogFile
 
 
 def activation_function(x):

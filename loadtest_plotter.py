@@ -7,7 +7,7 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import readline
 
-from Common import readResponseTimesFromLogFile
+from common.Common import readResponseTimesFromLogFile
 
 num_clients = []
 avg_time_allowed = []

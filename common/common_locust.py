@@ -1,6 +1,7 @@
 import logging
 import time
 from abc import ABC, abstractmethod
+from typing import Optional
 
 import requests
 from locust import events
@@ -15,10 +16,10 @@ class RepeatingClient(ABC):
         self.base_url = base_url
 
     @abstractmethod
-    def send_impl(self, endpoint, data) -> (object, bool):
+    def send_impl(self, endpoint, data=None) -> (object, bool):
         pass
 
-    def send(self, endpoint, data):
+    def send(self, endpoint, data=None):
         logger = logging.getLogger('RepeatingClient')
 
         url = self.base_url + endpoint
@@ -49,11 +50,14 @@ class RepeatingClient(ABC):
 
 
 class RepeatingHttpClient(RepeatingClient):
-    def send_impl(self, url, data) -> (object, bool):
+    def send_impl(self, url, data=None) -> (object, bool):
         logger = logging.getLogger('RepeatingHttpClient')
 
         logger.info("POST")
-        response = requests.post(url, json=data)
+        if data is not None:
+            response = requests.post(url, json=data)
+        else:
+            response = requests.post(url)
         logger.info("Response: %s", response.status_code)
 
         successfully_sent = 200 <= response.status_code < 300

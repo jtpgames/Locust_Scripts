@@ -3,7 +3,7 @@ import json
 
 from locust import task, between, User
 
-from common_locust import RepeatingHttpClient
+from common.common_locust import RepeatingHttpClient
 
 
 class RepeatingHttpLocust(User):

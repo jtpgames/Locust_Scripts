@@ -6,7 +6,7 @@ import platform
 import os
 import logging
 
-from Common import call_locust_with
+from common.Common import call_locust_with
 
 average_response_time = {}
 min_response_time = {}
