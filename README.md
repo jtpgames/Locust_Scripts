@@ -106,7 +106,7 @@ and when you want to finish the load test, terminate it with `Ctrl + C`.
 
 ```
 % python3 executor.py
-Path to the Locust script: your_script.py
+Path to the Locust script: locust_scripts/your_script.py
 ```
 
 After that, plot your results:
