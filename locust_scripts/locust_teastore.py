@@ -41,12 +41,12 @@ class TeaStore(HttpUser):
     def _login(self):
         endpoint = self._prefix + f"loginAction?username={self._user}&password={self._pw}"
 
-        response = self.client.post(endpoint, "/login")
+        response = self.client.post(endpoint, name="/login")
 
     def _logout(self):
         endpoint = self._prefix + "loginAction?logout="
 
-        response = self.client.post(endpoint, "/logout")
+        response = self.client.post(endpoint, name="/logout")
 
     @task(3)
     def browse_tea_categories(self):

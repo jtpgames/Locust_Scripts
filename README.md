@@ -101,12 +101,15 @@ on how to write a Locust script. The only thing to keep in mind is, that your Lo
 has to output the measured response times to a logfile in the same way our script does it. 
 Use `logger.info("Response time %s ms", total_time)` to log the response times.
 
-When you have your Locust script ready, execute it with `python3 executor.py.`, enter your script when prompted, 
+When you have your Locust script ready, execute it with `python3 executor.py`, 
+pass the path to your script as argument, 
 and when you want to finish the load test, terminate it with `Ctrl + C`.
 
+Use `python3 executor.py --help` to get additional information.
+
+Example call:
 ```
-% python3 executor.py
-Path to the Locust script: locust_scripts/your_script.py
+% python3 executor.py locust_scripts/locust_tester.py
 ```
 
 After that, plot your results:
