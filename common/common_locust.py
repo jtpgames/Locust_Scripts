@@ -1,10 +1,10 @@
 import logging
-import time
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import requests
 from locust import events
+
+from stopwatch import Stopwatch
 
 
 class RepeatingClient(ABC):
@@ -26,9 +26,7 @@ class RepeatingClient(ABC):
 
         logger.info("Sending to %s", url)
 
-        # TODO Simply use StopWatch instead of manually calculating total_time
-        # this might also be more precise, as Stopwatch uses perf_counter.
-        tau_trigger = time.time()
+        stopwatch = Stopwatch()
 
         response = None
         successfully_sent = False
@@ -40,11 +38,11 @@ class RepeatingClient(ABC):
             except Exception:
                 pass
 
-        tau_ack = time.time()
-        total_time = int((tau_ack - tau_trigger) * 1000)
-        events.request_success.fire(request_type="POST", name=endpoint, response_time=total_time, response_length=0)
+        stopwatch.stop()
+        total_time_ms = int(stopwatch.duration * 1000)
+        events.request_success.fire(request_type="POST", name=endpoint, response_time=total_time_ms, response_length=0)
 
-        logger.info("Response time %s ms", total_time)
+        logger.info("Response time %s ms", total_time_ms)
 
         return response
 
