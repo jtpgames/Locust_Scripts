@@ -6,10 +6,10 @@
 
 import logging
 import random
+import re
 
 import requests
 from locust import between, task, HttpUser, events
-
 from locust.env import Environment
 
 
@@ -53,7 +53,15 @@ class TeaStore(HttpUser):
         random_category = random.randint(2, 6)
         endpoint = self._prefix + f"category?page=1&category={random_category}&number={self._productviewcount}"
 
-        self.client.get(endpoint, name="/tea_category")
+        r = self.client.get(endpoint, name="/tea_category")
+
+        p = re.compile('href=.*product.*?id=\\d+. ><img')
+
+        product_links = p.findall(r.text)
+
+        for link in product_links:
+            product_id = re.search('id=\\d+', link).group(0)
+            print(product_id)
 
     @task
     def open_user_profile(self):
