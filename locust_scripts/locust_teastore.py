@@ -28,11 +28,14 @@ def my_success_handler(request_type, name, response_time, response_length, **kw)
 
 
 class TeaStore(HttpUser):
-    wait_time = between(1, 1)
+    wait_time = between(1, 90)
 
     _user = "user"
     _pw = "password"
     _productviewcount = 30
+
+    _known_product_ids = []
+    _dup = {}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -55,13 +58,20 @@ class TeaStore(HttpUser):
 
         r = self.client.get(endpoint, name="/tea_category")
 
-        p = re.compile('href=.*product.*?id=\\d+. ><img')
+        p = re.compile(r"href=.*product.*?id=\d+. ><img")
 
         product_links = p.findall(r.text)
 
         for link in product_links:
-            product_id = re.search('id=\\d+', link).group(0)
-            print(product_id)
+            product_id = re.search(r"(?<=id=)\d+", link).group(0)
+            # print(link)
+            # print(product_id)
+            if product_id not in self._dup:
+                self._known_product_ids.append(product_id)
+                self._dup[product_id] = len(self._known_product_ids) - 1
+
+        # print(self._known_product_ids)
+        # print(self._dup)
 
     @task
     def open_user_profile(self):
