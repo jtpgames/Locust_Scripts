@@ -1,12 +1,14 @@
 import logging
 import os
-import threading
 from datetime import datetime
+from logging.handlers import TimedRotatingFileHandler
 from threading import current_thread
+from uuid import uuid4
+
 from time import sleep
 
 import psutil
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from joblib import load
 
 from stopwatch import Stopwatch
@@ -33,19 +35,21 @@ def remove_prefix(text, prefix):
     return text
 
 
-date_today = datetime.now().strftime('%Y-%m-%d')
+def namer(name):
+    return name.replace(".log.", "") + ".log"
 
-fh = logging.FileHandler(f"teastore-cmd_simulation_{date_today}.log", mode='w')
+
+fh = TimedRotatingFileHandler(f"teastore-cmd_simulation.log", when='midnight')
 fh.setLevel(logging.DEBUG)
+fh.suffix = "_%Y-%m-%d"
+fh.namer = namer
 
 logging.basicConfig(format="%(message)s",
-                    level=os.environ.get("LOGLEVEL", "INFO"),
+                    level=os.environ.get("LOGLEVEL", "DEBUG"),
                     handlers=[fh])
 
 
-def log_command(cmd, startOrEndOfCmd):
-    tid = threading.get_ident()
-
+def log_command(tid, cmd, startOrEndOfCmd):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
     logging.info(f"[{str(tid):13}]"
@@ -54,12 +58,12 @@ def log_command(cmd, startOrEndOfCmd):
                  f" {cmd}")
 
 
-def log_start_command(cmd):
-    log_command(cmd, "CMD-START")
+def log_start_command(tid, cmd):
+    log_command(tid, cmd, "CMD-START")
 
 
-def log_end_command(cmd):
-    log_command(cmd, "CMD-ENDE")
+def log_end_command(tid, cmd):
+    log_command(tid, cmd, "CMD-ENDE")
 
 
 def predict_sleep_time(model, tid, command):
@@ -88,40 +92,25 @@ def predict_sleep_time(model, tid, command):
 
 @app.middleware("http")
 async def simulate_processing_time(request: Request, call_next):
-    # command = request.url.path.removeprefix(prefix)
-    command = remove_prefix(request.url.path, prefix)
+    found_command = request.scope["X-CMD"]
 
-    print(f"Cmd: {command}")
+    tid = request.scope['X-UID']
+    sleep_time_to_use = predict_sleep_time(predictive_model, tid, found_command)
 
-    sleep_time_to_use = 0.1
+    print("Waiting for {}".format(sleep_time_to_use))
+    sleep(sleep_time_to_use)
 
-    found_command = None
-
-    for known_command in known_request_types:
-        if command.lower() in known_command.lower():
-            found_command = known_command
+    sleep_time_last_time = sleep_time_to_use
+    while True:
+        sleep_time_test = predict_sleep_time(predictive_model, tid, found_command)
+        if sleep_time_test <= sleep_time_last_time:
             break
+        else:
+            sleep_time_to_use = sleep_time_test - sleep_time_last_time
 
-    if found_command is not None:
-        print(f"-> {found_command}")
-
-        tid = threading.get_ident()
-        sleep_time_to_use = predict_sleep_time(predictive_model, tid, found_command)
-
+        sleep_time_last_time = sleep_time_test
         print("Waiting for {}".format(sleep_time_to_use))
         sleep(sleep_time_to_use)
-
-        sleep_time_last_time = sleep_time_to_use
-        while True:
-            sleep_time_test = predict_sleep_time(predictive_model, tid, found_command)
-            if sleep_time_test <= sleep_time_last_time:
-                break
-            else:
-                sleep_time_to_use = sleep_time_test - sleep_time_last_time
-
-            sleep_time_last_time = sleep_time_test
-            print("Waiting for {}".format(sleep_time_to_use))
-            sleep(sleep_time_to_use)
 
     response = await call_next(request)
     return response
@@ -134,38 +123,28 @@ async def track_parallel_requests(request: Request, call_next):
     number_of_parallel_requests_at_beginning = number_of_parallel_requests_pending
     number_of_parallel_requests_pending = number_of_parallel_requests_pending + 1
 
-    tid = threading.get_ident()
+    found_command = request.scope["X-CMD"]
 
-    # command = request.url.path.removeprefix(prefix)
-    command = remove_prefix(request.url.path, prefix)
+    tid = request.scope['X-UID']
 
-    found_command = None
+    log_start_command(tid, found_command)
 
-    for known_command in known_request_types:
-        if command.lower() in known_command.lower():
-            found_command = known_command
-            break
-
-    if found_command is not None:
-        log_start_command(found_command)
-
-        startedCommands[tid] = {
-            "cmd": found_command,
-            "parallelCommandsStart": number_of_parallel_requests_at_beginning,
-            "parallelCommandsFinished": 0
-        }
+    startedCommands[tid] = {
+        "cmd": found_command,
+        "parallelCommandsStart": number_of_parallel_requests_at_beginning,
+        "parallelCommandsFinished": 0
+    }
 
     response = await call_next(request)
 
-    if found_command is not None:
-        number_of_parallel_requests_pending = number_of_parallel_requests_pending - 1
+    number_of_parallel_requests_pending = number_of_parallel_requests_pending - 1
 
-        startedCommands.pop(tid)
+    startedCommands.pop(tid)
 
-        for cmd in startedCommands.values():
-            cmd["parallelCommandsFinished"] = cmd["parallelCommandsFinished"] + 1
+    for cmd in startedCommands.values():
+        cmd["parallelCommandsFinished"] = cmd["parallelCommandsFinished"] + 1
 
-        log_end_command(found_command)
+    log_end_command(tid, found_command)
 
     return response
 
@@ -176,42 +155,76 @@ async def add_process_time_header(request: Request, call_next):
     response = await call_next(request)
     stopwatch.stop()
     process_time = stopwatch.duration
-    print("Processing Time: ", stopwatch)
+    logging.info(f"Processing Time: {stopwatch}")
     response.headers["X-Process-Time"] = str(process_time)
     return response
 
+
+@app.middleware("http")
+async def extract_command(request: Request, call_next):
+    # command = request.url.path.removeprefix(prefix)
+    command = remove_prefix(request.url.path, prefix)
+
+    print(f"Cmd: {command}")
+
+    found_command = None
+
+    for known_command in known_request_types:
+        if command.lower() in known_command.lower():
+            found_command = known_command
+            break
+
+    if found_command is None:
+        raise HTTPException(status_code=404, detail="Command not found")
+
+    print(f"-> {found_command}")
+
+    request.scope["X-CMD"] = found_command
+    response = await call_next(request)
+
+    return response
+
+
+@app.middleware("http")
+async def add_unique_id(request: Request, call_next):
+    unique_command_id = hash(uuid4())
+
+    request.scope["X-UID"] = str(unique_command_id)
+    response = await call_next(request)
+
+    return response
 
 prefix = "/tools.descartes.teastore.webui/"
 
 
 @app.post(f"{prefix}loginAction")
 def login(username: str = "", password: str = "", logout: str = ""):
-    print(f"[{current_thread()}] POST login {username} {password} {logout}")
+    print(f"[{current_thread().ident}] POST login {username} {password} {logout}")
     return {"message": "Success"}
 
 
 @app.get(f"{prefix}profile")
 def get_profile():
-    print(f"[{current_thread()}] GET profile")
+    print(f"[{current_thread().ident}] GET profile")
     return {"message": "SimProfile"}
 
 
 @app.get(f"{prefix}cart")
 def get_cart():
-    print(f"[{current_thread()}] GET cart")
+    print(f"[{current_thread().ident}] GET cart")
     return {"message": "Empty cart"}
 
 
 @app.post(f"{prefix}cartAction")
 def post_cart(action: str):
-    print(f"[{current_thread()}] POST cartAction with {action}")
+    print(f"[{current_thread().ident}] POST cartAction with {action}")
     return {"message": "Ok"}
 
 
 @app.get(f"{prefix}category")
 def get_category(page: int, category: int, number: int):
     print(
-        f"[{current_thread()}] GET category: page:{page}, "
+        f"[{current_thread().ident}] GET category: page:{page}, "
         f"category:{category}, "
         f"number: {number}"
     )
@@ -230,6 +243,6 @@ def get_category(page: int, category: int, number: int):
 @app.get(f"{prefix}product")
 def get_product(id: int):
     print(
-        f"[{current_thread()}] GET product: id:{id}"
+        f"[{current_thread().ident}] GET product: id:{id}"
     )
     return {"name": "my product"}
