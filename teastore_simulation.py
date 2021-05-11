@@ -1,11 +1,13 @@
+import logging
+import os
 import threading
+from datetime import datetime
 from threading import current_thread
 from time import sleep
 
 import psutil
 from fastapi import FastAPI, Request
 from joblib import load
-from sklearn.base import RegressorMixin
 
 from stopwatch import Stopwatch
 
@@ -13,13 +15,6 @@ app = FastAPI(
     root_path="",
     title="TeaStore Simulation"
 )
-
-commands = [
-    "ID_LoginActionServlet_handlePOSTRequest",
-    "ID_ProfileServlet_handleGETRequest",
-    "ID_CartServlet_handleGETRequest",
-    "ID_CategoryServlet_handleGETRequest",
-]
 
 predictive_model = load("teastore_model.joblib")
 known_request_types = load("teastore_requests.joblib")
@@ -30,13 +25,41 @@ number_of_parallel_requests_pending = 0
 startedCommands = {}
 
 
-# Because not everyone is using Python 3.9+
+# Because not everyone is using Python 3.9+ we use this one.
 # Source: https://stackoverflow.com/a/16891418
 def remove_prefix(text, prefix):
     if text.startswith(prefix):
         return text[len(prefix):]
     return text
 
+
+date_today = datetime.now().strftime('%Y-%m-%d')
+
+fh = logging.FileHandler(f"teastore-cmd_simulation_{date_today}.log", mode='w')
+fh.setLevel(logging.DEBUG)
+
+logging.basicConfig(format="%(message)s",
+                    level=os.environ.get("LOGLEVEL", "INFO"),
+                    handlers=[fh])
+
+
+def log_command(cmd, startOrEndOfCmd):
+    tid = threading.get_ident()
+
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+
+    logging.info(f"[{str(tid):13}]"
+                 f" {timestamp}"
+                 f" {startOrEndOfCmd:9}"
+                 f" {cmd}")
+
+
+def log_start_command(cmd):
+    log_command(cmd, "CMD-START")
+
+
+def log_end_command(cmd):
+    log_command(cmd, "CMD-ENDE")
 
 
 def predict_sleep_time(model, tid, command):
@@ -116,25 +139,33 @@ async def track_parallel_requests(request: Request, call_next):
     # command = request.url.path.removeprefix(prefix)
     command = remove_prefix(request.url.path, prefix)
 
+    found_command = None
+
     for known_command in known_request_types:
         if command.lower() in known_command.lower():
-            command = known_command
+            found_command = known_command
             break
 
-    startedCommands[tid] = {
-        "cmd": command,
-        "parallelCommandsStart": number_of_parallel_requests_at_beginning,
-        "parallelCommandsFinished": 0
-    }
+    if found_command is not None:
+        log_start_command(found_command)
+
+        startedCommands[tid] = {
+            "cmd": found_command,
+            "parallelCommandsStart": number_of_parallel_requests_at_beginning,
+            "parallelCommandsFinished": 0
+        }
 
     response = await call_next(request)
 
-    number_of_parallel_requests_pending = number_of_parallel_requests_pending - 1
+    if found_command is not None:
+        number_of_parallel_requests_pending = number_of_parallel_requests_pending - 1
 
-    startedCommands.pop(tid)
+        startedCommands.pop(tid)
 
-    for cmd in startedCommands.values():
-        cmd["parallelCommandsFinished"] = cmd["parallelCommandsFinished"] + 1
+        for cmd in startedCommands.values():
+            cmd["parallelCommandsFinished"] = cmd["parallelCommandsFinished"] + 1
+
+        log_end_command(found_command)
 
     return response
 
