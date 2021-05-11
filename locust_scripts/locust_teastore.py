@@ -42,10 +42,10 @@ class StagesShape(LoadTestShape):
     """
 
     stages = [
-        {"duration": timedelta(minutes=60).total_seconds(), "users": 1, "spawn_rate": 1},
-        {"duration": timedelta(minutes=120).total_seconds(), "users": 10, "spawn_rate": 1},
-        {"duration": timedelta(minutes=240).total_seconds(), "users": 50, "spawn_rate": 10},
-        {"duration": timedelta(minutes=480).total_seconds(), "users": 20, "spawn_rate": 1},
+        {"duration": timedelta(seconds=60).total_seconds(), "users": 1, "spawn_rate": 1},
+        {"duration": timedelta(seconds=120).total_seconds(), "users": 10, "spawn_rate": 1},
+        {"duration": timedelta(seconds=240).total_seconds(), "users": 50, "spawn_rate": 10},
+        {"duration": timedelta(seconds=480).total_seconds(), "users": 20, "spawn_rate": 1},
     ]
 
     def tick(self):
@@ -63,7 +63,7 @@ class StagesShape(LoadTestShape):
 
 # class TeaStore(HttpUser):
 class TeaStore(FastHttpUser):
-    wait_time = between(1, 90)
+    wait_time = between(8, 8)
 
     _global_user_count = 0
 

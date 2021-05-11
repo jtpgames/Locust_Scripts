@@ -30,6 +30,15 @@ number_of_parallel_requests_pending = 0
 startedCommands = {}
 
 
+# Because not everyone is using Python 3.9+
+# Source: https://stackoverflow.com/a/16891418
+def remove_prefix(text, prefix):
+    if text.startswith(prefix):
+        return text[len(prefix):]
+    return text
+
+
+
 def predict_sleep_time(model, tid, command):
     from numpy import array
 
@@ -56,7 +65,8 @@ def predict_sleep_time(model, tid, command):
 
 @app.middleware("http")
 async def simulate_processing_time(request: Request, call_next):
-    command = request.url.path.removeprefix(prefix)
+    # command = request.url.path.removeprefix(prefix)
+    command = remove_prefix(request.url.path, prefix)
 
     print(f"Cmd: {command}")
 
@@ -103,7 +113,8 @@ async def track_parallel_requests(request: Request, call_next):
 
     tid = threading.get_ident()
 
-    command = request.url.path.removeprefix(prefix)
+    # command = request.url.path.removeprefix(prefix)
+    command = remove_prefix(request.url.path, prefix)
 
     for known_command in known_request_types:
         if command.lower() in known_command.lower():
