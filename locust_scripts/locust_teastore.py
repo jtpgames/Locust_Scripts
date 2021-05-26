@@ -57,7 +57,9 @@ class RealWorkloadShape(LoadTestShape):
 
         self._workload_pattern = dict()
 
+        self._number_of_days_recorded = 0
         for file_path in sorted(glob("GS Production Workload/*.log")):
+            print(file_path)
             with open(file_path) as logfile:
                 for line in logfile:
                     requests_per_hour = re.search('(?<=RPH:\\s)\\d*', line)
@@ -68,12 +70,17 @@ class RealWorkloadShape(LoadTestShape):
 
                     requests_per_hour = int(requests_per_hour.group())
 
-                    self._workload_pattern[time_stamp.hour] = requests_per_hour
+                    self._workload_pattern[self._number_of_days_recorded * 24 + time_stamp.hour] = requests_per_hour
+            self._number_of_days_recorded += 1
 
     def tick(self):
         run_time = self.get_run_time()
 
         run_time_in_hours = int(run_time / 3600)
+        run_time_in_days = int(run_time_in_hours / 24)
+
+        if run_time_in_days >= self._number_of_days_recorded:
+            return None
 
         avg_requests_per_second = int(self._workload_pattern[run_time_in_hours] / 3600)
 
