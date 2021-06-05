@@ -1,7 +1,7 @@
 TODOs
 --
 - [x] Reference to published paper or online version of it
-- [ ] loadtest_plotter.py: Cleanup and reading data from files
+- [x] loadtest_plotter.py: Cleanup and reading data from files
 - [ ] ARS_simulation.py: Cleanup, documentation and control workloads and parameters of the simulation model through CLI
 - [x] locust-parameter-variation.py: Cleanup and Documentation
 - [ ] Move the files into subfolders (Executors, Load Testers, Evaluators, Systems under Test)
@@ -27,7 +27,7 @@ Usually, the target systems will be external systems, e.g., web servers.
 In our case, we build software that simulates the behavior of a real system, 
 in order to provide the means for others to roughly reproduce our experiments.
 
-More details about our generic performance testing infrastructure can be found in our paper[[1]](https://www.doi.org/10.1007/978-3-030-68110-4_9).
+More details about our generic performance testing infrastructure can be found in our paper [[1]](https://www.doi.org/10.1007/978-3-030-68110-4_9).
 
 This repository contains the aforementioned Python scripts:
 
@@ -41,23 +41,30 @@ This repository contains the aforementioned Python scripts:
     * locust_tester.py: contains specific code for Locust to perform the actual performance test.
 For demonstration purposes, this script tests ARS_simulation.py.
 Outputs a `locust_log.log`;
+    * locust_multiple_requests: an enhanced version of locust_tester that sends additional requests to generate more load.
+    * locust_teastore.py: performs load testing against TeaStore, or our simulated TeaStore.
 * Evaluators:
     * loadtest_plotter.py: reads the `locust_log.log`, plots response times, and additional metrics 
 to better visualize, if the real-time requirements of the EN 50136 are met.
 * SUTs
-    * Alarm Receiving Software Simulation (ARS_simulation.py): simulates workload measured 
-in the production environment of an industrial ARS.
+    * Alarm Receiving Software Simulation (ARS_simulation.py): simulates an industrial ARS 
+based on data measured in the production environment of the GS company group.
+    * TeaStore (teastore_simulation.py): simulates TeaStore based on a predictive model
+generated in a lab environment.
 
-# Quick start
+# Instructions to reproduce results in our paper
+## Quick start
 * Clone the repository;
 * run `pip3 install -r requirements.txt`;
-* open two terminal shells: 
-    1. run `python3 ARS_simulation.py` in one of them;
-    2. run `python3 executor.py.` in the other.
+* In the file `ARS_simulation.py` make sure that 
+the lines marked with MASCOTS2020 are uncommented.
+* open two terminal shells:
+  1. run `python3 ARS_simulation.py` in one of them;
+  2. run `python3 executor.py.` in the other.
 * to stop the test, terminate the executor.py script;
 * run `python3 loadtest_plotter.py`, pass the locust_log.log and see the results. :)
 
-# Instructions to reproduce results in our paper
+## Details
 Using the performance testing infrastructure available in this repository, 
 we conducted performance tests in a real-world alarm system provided by the GS company.
 To provide a way to reproduce our results without the particular alarm system,
