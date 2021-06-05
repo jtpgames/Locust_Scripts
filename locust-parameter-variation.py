@@ -63,12 +63,24 @@ def read_measurements_from_locust_csv_and_append_to_dictonaries(path, num_client
 
     with open(path, newline='') as csvfile:
         reader = csv.DictReader(csvfile)
-        row = next(reader)
-        logger.info("Avg: {}, Min: {}, Max: {}".format(row['Average Response Time'], row['Min Response Time'],
-                                                       row['Max Response Time']))
-        average_response_time[num_clients] = float(row['Average Response Time'])
-        min_response_time[num_clients] = float(row['Min Response Time'])
-        max_response_time[num_clients] = float(row['Max Response Time'])
+
+        avg = 0
+        min = 0
+        max = 0
+        for row in reader:
+            v = float(row['Average Response Time'])
+            avg = v if avg < v else avg
+
+            v = float(row['Min Response Time'])
+            min = v if min < v else min
+
+            v = float(row['Max Response Time'])
+            max = v if max < v else max
+
+        logger.info("Avg: {}, Min: {}, Max: {}".format(avg, min, max))
+        average_response_time[num_clients] = float(avg)
+        min_response_time[num_clients] = float(min)
+        max_response_time[num_clients] = float(max)
 
 
 def config_complies_with_real_time_requirements(num_clients):

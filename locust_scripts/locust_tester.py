@@ -25,7 +25,7 @@ class AlarmDevice(RepeatingHttpLocust):
 
         json_string = json.dumps(json_msg)
 
-        response = self.client.send("/fake_call", json_msg)
+        response = self.client.send("/KC_STORE7D3BPACKET", json_msg)
 
     @task(1)
     def fake_alarm(self):

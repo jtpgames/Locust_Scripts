@@ -14,6 +14,9 @@ from time import sleep
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from datetime import datetime, timedelta
+
+from joblib import load
+
 from stopwatch import Stopwatch
 
 from dataclasses import dataclass
@@ -214,7 +217,7 @@ def simulate_workload_random(function: str):
         # --
 
         # for simplicity we just take a random distribution
-        # that is not representative for the production system behavior
+        # that is not representative for the production system's behavior
         random_processing_time = between(min_processing_time, max_processing_time)
 
         logger.debug("Waiting for {}".format(random_processing_time))
@@ -227,11 +230,14 @@ def simulate_workload_random(function: str):
 number_of_parallel_requests_pending = 0
 startedCommands = {}
 
+predictive_model = load("gs_model_prod_workload.joblib")
+known_request_types = load("gs_requests_mapping_prod_workload.joblib")
 
-def simulate_workload_using_linear_regression(function: str):
+
+def simulate_workload_using_predictive_model(function: str):
     """
     This function sleeps for the amount of time predicted
-    by a linear regression model.
+    by a predictive model.
     """
 
     global number_of_parallel_requests_pending
@@ -249,28 +255,13 @@ def simulate_workload_using_linear_regression(function: str):
 
     # logger.debug(startedCommands)
 
-    from sklearn.linear_model import LinearRegression
-    from numpy import array
-
-    model = LinearRegression()
-
-    # params for min lr
-    model.coef_ = array([-0.00104812, 0., 0.99484544, 0.99484544, 0.]).reshape(1, -1)
-    model.intercept_ = 67.340085614049
-    # params for rand lr
-    # model.coef_ = array([0.00255708, 0., 0.51920316, 0.51920316, 0.]).reshape(1, -1)
-    # model.intercept_ = -173.83221009666104
-    # params for legacy system lr
-    # model.coef_ = array([-9.58247505e-08, 1.82118045e-03, 1.35136687e-02, 1.30455746e-01, -2.47121740e-04]).reshape(1, -1)
-    # model.intercept_ = 0.0031715041920469464
-
-    sleep_time_to_use = predict_sleep_time(model, tid)
+    sleep_time_to_use = predict_sleep_time(predictive_model, tid, function)
     # logger.debug("Waiting for {}".format(sleep_time_to_use))
     sleep(sleep_time_to_use)
 
     sleep_time_last_time = sleep_time_to_use
     while True:
-        sleep_time_test = predict_sleep_time(model, tid)
+        sleep_time_test = predict_sleep_time(predictive_model, tid, function)
         if sleep_time_test <= sleep_time_last_time:
             break
         else:
@@ -292,7 +283,7 @@ def simulate_workload_using_linear_regression(function: str):
     return True
 
 
-def predict_sleep_time(model, tid):
+def predict_sleep_time(model, tid, command):
     from numpy import array
 
     now = datetime.now()
@@ -303,16 +294,26 @@ def predict_sleep_time(model, tid):
 
     weekday = now.weekday()
 
-    X = array([time_of_day_in_seconds,
-               weekday,
-               startedCommands[tid]["parallelCommandsStart"],
+    request_type_as_int = known_request_types[command]
+
+    # X = array([time_of_day_in_seconds,
+    #            weekday,
+    #            startedCommands[tid]["parallelCommandsStart"],
+    #            startedCommands[tid]["parallelCommandsFinished"],
+    #            request_type_as_int,
+    #            1]) \
+    #     .reshape(1, -1)
+
+    X = array([startedCommands[tid]["parallelCommandsStart"],
                startedCommands[tid]["parallelCommandsFinished"],
-               0]) \
+               request_type_as_int]) \
         .reshape(1, -1)
 
+    # print(f"X: {X}")
     y = model.predict(X)
+    # print(f"y: {y}")
 
-    y_value = y[0, 0]
+    y_value = y[0]
     y_value = max(0, y_value)
 
     return y_value
@@ -339,7 +340,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         logger.info("----- Request Start ----->")
 
-        cmdName = "ID_" + request_path.replace("/", "_")
+        cmdName = "ID_REQ_" + request_path.replace("/", "")
 
         logger.info("CMD-START: %s", cmdName)
 
@@ -361,7 +362,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             # is_successful = simulate_minimal_workload()
             # --
             # is_successful = simulate_workload_random(cmdName)
-            is_successful = simulate_workload_using_linear_regression(cmdName)
+            is_successful = simulate_workload_using_predictive_model(cmdName)
             stopwatch.stop()
             logger.info("Request execution time: %s", stopwatch)
 
