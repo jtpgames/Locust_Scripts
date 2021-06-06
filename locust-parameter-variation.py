@@ -102,7 +102,7 @@ def config_complies_with_real_time_requirements(num_clients):
     exceeds_average_response_time = average_response_time_s > avg_time_allowed_in_s
     exceeds_max_response_time = max_response_time_s > max_time_allowed_in_s
 
-    is_compliant = not (exceeds_average_response_time and exceeds_max_response_time)
+    is_compliant = not (exceeds_average_response_time or exceeds_max_response_time)
 
     logger.info(f"--> {is_compliant}")
 
