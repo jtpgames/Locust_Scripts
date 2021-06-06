@@ -35,10 +35,12 @@ class RealWorkloadShape(LoadTestShape):
     def __init__(self):
         super().__init__()
 
+        self._max_requests_per_hour_within_the_workload = 0
+
         self._workload_pattern = dict()
 
         self._number_of_days_recorded = 0
-        for file_path in sorted(glob("GS Production Workload/Requests_per_time_unit_*.log")):
+        for file_path in sorted(glob("GS Production Workload/Requests_without_alarms_*.log")):
             print(file_path)
             with open(file_path) as logfile:
                 for line in logfile:
@@ -53,19 +55,24 @@ class RealWorkloadShape(LoadTestShape):
                     self._workload_pattern[self._number_of_days_recorded * 24 + time_stamp.hour] = requests_per_hour
             self._number_of_days_recorded += 1
 
+        self._max_requests_per_hour_within_the_workload = max(self._workload_pattern.values())
+
     def tick(self):
-        run_time = self.get_run_time()
-
-        run_time_in_hours = int(run_time / 3600)
-        run_time_in_days = int(run_time_in_hours / 24)
-
-        if run_time_in_days >= self._number_of_days_recorded:
-            return None
-
-        avg_requests_per_second = int(self._workload_pattern[run_time_in_hours] / 3600)
-
-        # Because every user sends one request per second, we need avg_requests_per_second users
+        avg_requests_per_second = int(self._max_requests_per_hour_within_the_workload / 3600)
         return avg_requests_per_second, avg_requests_per_second
+
+        # run_time = self.get_run_time()
+        #
+        # run_time_in_hours = int(run_time / 3600)
+        # run_time_in_days = int(run_time_in_hours / 24)
+        #
+        # if run_time_in_days >= self._number_of_days_recorded:
+        #     return None
+        #
+        # avg_requests_per_second = int(self._workload_pattern[run_time_in_hours] / 3600)
+        #
+        # # Because every user sends one request per second, we need avg_requests_per_second users
+        # return avg_requests_per_second, avg_requests_per_second
 
 
 class RepeatingHttpLocust(User):
@@ -106,24 +113,3 @@ class LoadGenerator(RepeatingHttpLocust):
     @task(1)
     def execute_request(self):
         self.do_request()
-
-
-class AlarmDevice(RepeatingHttpLocust):
-    """
-    Simulates an alarm device, i.e., sends periodic alarm and repeats the transmission until it was successful.
-    """
-    wait_time = constant(1)
-
-    def send_alarm(self):
-        json_msg = {
-            'id': "070010",
-            'body': "alarm"
-        }
-
-        json_string = json.dumps(json_msg)
-
-        response = self.client.send("/ID_REQ_KC_STORE7D3BPACKET", json_msg)
-
-    @task(1)
-    def fake_alarm(self):
-        self.send_alarm()
