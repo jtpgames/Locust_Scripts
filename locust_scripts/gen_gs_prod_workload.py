@@ -88,7 +88,7 @@ random.seed(42)
 
 requests = set()
 
-with open("GS Production Workload/Request_Names.log") as logfile:
+with open("GS Production Workload/All_Request_Names.log") as logfile:
     for line in logfile:
         if "ID_REQ_KC_STORE7D3BPACKET" in line:
             continue
