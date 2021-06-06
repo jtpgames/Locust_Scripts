@@ -57,7 +57,7 @@ generated in a lab environment.
 * Clone the repository;
 * run `pip3 install -r requirements.txt`;
 * In the file `ARS_simulation.py` make sure that 
-the lines marked with MASCOTS2020 are uncommented.
+the constant `MASCOTS2020` is set to `True`.
 * open two terminal shells:
   1. run `python3 ARS_simulation.py` in one of them;
   2. run `python3 executor.py.` in the other.

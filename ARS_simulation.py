@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # Simulates an ARS with workloads measured in a productive environment.
-# Uncomment the lines marked with MASCOTS2020, in order to produce similar results as in our paper.
+# Set the constant MASCOTS2020 to True, in order to produce similar results as in our paper.
 # HTTPServer based on https://gist.github.com/huyng/814831 Written by Nathan Hamiel (2010)
 
 import os
@@ -22,6 +22,8 @@ from stopwatch import Stopwatch
 from dataclasses import dataclass
 
 import logging
+
+MASCOTS2020 = False
 
 fh = logging.FileHandler('ARS_simulation_{:%Y-%m-%d}.log'.format(datetime.now()))
 fh.setLevel(logging.DEBUG)
@@ -358,11 +360,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         else:
             stopwatch = Stopwatch()
 
-            # -- MASCOTS2020 --
-            # is_successful = simulate_minimal_workload()
-            # --
-            # is_successful = simulate_workload_random(cmd_name)
-            is_successful = simulate_workload_using_predictive_model(cmd_name)
+            if MASCOTS2020:
+                is_successful = simulate_minimal_workload()
+            else:
+                # is_successful = simulate_workload_random(cmd_name)
+                is_successful = simulate_workload_using_predictive_model(cmd_name)
             stopwatch.stop()
             logger.info("Request execution time: %s", stopwatch)
 
@@ -380,7 +382,8 @@ def main():
     scheduler.start()
 
     # inject_a_fault_every_s_seconds(60)
-    # MASCOTS2020: inject_three_faults_in_a_row()
+    if MASCOTS2020:
+        inject_three_faults_in_a_row()
 
     port = 1337
     logger.info('Listening on localhost:%s' % port)
