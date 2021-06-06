@@ -1,1 +1,0 @@
-python3 executor.py locust_scripts/locust_multiple_requests.py

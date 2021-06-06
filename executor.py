@@ -37,14 +37,6 @@ def read_measurements_from_locust_csv_and_append_to_dictonaries(path, num_client
         max_response_time[num_clients] = float(max)
 
 
-fh = logging.FileHandler('executor.log')
-fh.setLevel(logging.DEBUG)
-
-logging.basicConfig(format="%(asctime)s %(message)s",
-                    level=os.environ.get("LOGLEVEL", "INFO"),
-                    handlers=[fh])
-
-
 def main(
         locust_script: str = typer.Argument(
             ...,
@@ -64,11 +56,25 @@ def main(
             -1,
             "--runtime", "-t",
             help="How many minutes the test should run."
+        ),
+        silent: bool = typer.Option(
+            False,
+            "--silent", "-s",
+            help="Omit .csv and log files"
         )
 ):
-    call_locust_with(locust_script, url, num_clients, runtime)
+    if silent is False:
+        fh = logging.FileHandler('executor.log')
+        fh.setLevel(logging.DEBUG)
 
-    read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv", 1)
+        logging.basicConfig(format="%(asctime)s %(message)s",
+                            level=os.environ.get("LOGLEVEL", "INFO"),
+                            handlers=[fh])
+
+    call_locust_with(locust_script, url, num_clients, runtime, silent)
+
+    if silent is False:
+        read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv", 1)
 
 
 if __name__ == "__main__":

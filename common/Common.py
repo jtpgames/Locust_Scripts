@@ -44,27 +44,27 @@ def readResponseTimesFromLogFile(path: str) -> Dict[datetime, float]:
     return response_times
 
 
-def call_locust_with(locust_script, url, clients, runtime_in_min=-1):
+def call_locust_with(locust_script, url, clients, runtime_in_min=-1, omit_csv_files=False):
     logger = logging.getLogger('call_locust_with')
 
     logger.info("Starting locust with (%s, %s)", clients, runtime_in_min)
 
+    params = f"-f {locust_script} "
+    params += f"--host={url} "
+    params += "--headless "
+    if omit_csv_files is False:
+        params += f"--csv=loadtest_{clients}_clients "
+
     if runtime_in_min > 0:
         os.system(
-            f"locust -f {locust_script} \
-            --host={url} \
-            --headless \
-            --csv=loadtest_{clients}_clients \
-            --users={clients} --spawn-rate=1 \
+            f"locust {params} \
+            --users={clients} --spawn-rate=50 \
             --run-time={runtime_in_min}m \
             --logfile locust_log_{clients}.log"
         )
     else:
         os.system(
-            f"locust -f {locust_script} \
-            --host={url} \
-            --headless \
-            --csv=loadtest_{clients}_clients \
+            f"locust {params} \
             --users={clients} --spawn-rate={clients} \
             --logfile locust_log.log"
         )
