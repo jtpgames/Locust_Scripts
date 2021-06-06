@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import json
+import random
 
 from locust import task, between, User
 
@@ -14,7 +15,15 @@ class RepeatingHttpLocust(User):
         self.client = RepeatingHttpClient(self.host)
 
 
+# initialize the random seed value to get reproducible random sequences
+random.seed(42)
+
+
 class AlarmDevice(RepeatingHttpLocust):
+    """
+    Simulates an alarm device, i.e., sends periodic alarm and repeats the transmission until it was successful.
+    """
+
     wait_time = between(1, 1)
 
     def send_alarm(self):

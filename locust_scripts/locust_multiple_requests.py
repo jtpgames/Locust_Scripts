@@ -1,9 +1,71 @@
 #!/usr/bin/env python
 import json
+import random
+import re
+from datetime import datetime
+from glob import glob
+from re import search
 
-from locust import task, between, User
+from locust import task, between, User, constant, LoadTestShape
 
 from common.common_locust import RepeatingHttpClient
+
+
+def contains_timestamp_with_ms(line: str):
+    return search(r"\s*\d*-\d*-\d*\s\d*:\d*:\d*\.\d*", line) is not None
+
+
+def get_timestamp_from_string(line: str):
+    return search(r"\s*\d*-\d*-\d*\s\d*:\d*:\d*\.?\d*", line).group().strip()
+
+
+def get_timestamp_from_line(line: str) -> datetime:
+    if contains_timestamp_with_ms(line):
+        format_string = '%Y-%m-%d %H:%M:%S.%f'
+    else:
+        format_string = '%Y-%m-%d %H:%M:%S'
+
+    return datetime.strptime(
+        get_timestamp_from_string(line),
+        format_string
+    )
+
+
+class RealWorkloadShape(LoadTestShape):
+    def __init__(self):
+        super().__init__()
+
+        self._workload_pattern = dict()
+
+        self._number_of_days_recorded = 0
+        for file_path in sorted(glob("GS Production Workload/Requests_per_time_unit_*.log")):
+            print(file_path)
+            with open(file_path) as logfile:
+                for line in logfile:
+                    requests_per_hour = re.search('(?<=RPH:\\s)\\d*', line)
+                    if requests_per_hour is None:
+                        continue
+
+                    time_stamp = get_timestamp_from_line(line)
+
+                    requests_per_hour = int(requests_per_hour.group())
+
+                    self._workload_pattern[self._number_of_days_recorded * 24 + time_stamp.hour] = requests_per_hour
+            self._number_of_days_recorded += 1
+
+    def tick(self):
+        run_time = self.get_run_time()
+
+        run_time_in_hours = int(run_time / 3600)
+        run_time_in_days = int(run_time_in_hours / 24)
+
+        if run_time_in_days >= self._number_of_days_recorded:
+            return None
+
+        avg_requests_per_second = int(self._workload_pattern[run_time_in_hours] / 3600)
+
+        # Because every user sends one request per second, we need avg_requests_per_second users
+        return avg_requests_per_second, avg_requests_per_second
 
 
 class RepeatingHttpLocust(User):
@@ -14,46 +76,43 @@ class RepeatingHttpLocust(User):
         self.client = RepeatingHttpClient(self.host)
 
 
+# initialize the random seed value to get reproducible random sequences
+random.seed(42)
+
+requests = set()
+
+with open("GS Production Workload/Request_Names.log") as logfile:
+    for line in logfile:
+        if "ID_REQ_KC_STORE7D3BPACKET" in line:
+            continue
+
+        requests.add(line.rstrip())
+
+requests = tuple(requests)
+
+
 class LoadGenerator(RepeatingHttpLocust):
     """
     Generates the workload that occurs independently of alarm devices.
     This workload consists of requests that are executed by other components of the legacy system.
     """
-    wait_time = between(1, 1)
+    wait_time = constant(1)
 
-    def get_server_time(self):
-        response = self.client.send("/CMD_GETSERVERTIMESTR")
+    def do_request(self):
+        cmd_to_use = random.choice(requests)
 
-    def get_status(self):
-        response = self.client.send("/KC_GETQUITTIERTEPAKETE")
-
-    def update_status(self):
-        json_msg = {
-            'id': "070010",
-        }
-
-        json_string = json.dumps(json_msg)
-
-        response = self.client.send("/KC_DELETEQUITTIERTEPAKETE", json_string)
-
-    @task(5)
-    def server_time(self):
-        self.get_server_time()
+        self.client.send(f"/{cmd_to_use}")
 
     @task(1)
-    def alarms_status(self):
-        self.get_status()
-
-    @task(1)
-    def update_alarms_status(self):
-        self.update_status()
+    def execute_request(self):
+        self.do_request()
 
 
 class AlarmDevice(RepeatingHttpLocust):
     """
     Simulates an alarm device, i.e., sends periodic alarm and repeats the transmission until it was successful.
     """
-    wait_time = between(1, 1)
+    wait_time = constant(1)
 
     def send_alarm(self):
         json_msg = {
@@ -63,8 +122,8 @@ class AlarmDevice(RepeatingHttpLocust):
 
         json_string = json.dumps(json_msg)
 
-        response = self.client.send("/KC_STORE7D3BPACKET", json_msg)
+        response = self.client.send("/ID_REQ_KC_STORE7D3BPACKET", json_msg)
 
-    @task(10)
+    @task(1)
     def fake_alarm(self):
         self.send_alarm()

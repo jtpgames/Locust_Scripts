@@ -58,7 +58,7 @@ class RealWorkloadShape(LoadTestShape):
         self._workload_pattern = dict()
 
         self._number_of_days_recorded = 0
-        for file_path in sorted(glob("GS Production Workload/*.log")):
+        for file_path in sorted(glob("GS Production Workload/Requests_per_time_unit_*.log")):
             print(file_path)
             with open(file_path) as logfile:
                 for line in logfile:

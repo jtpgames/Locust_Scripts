@@ -340,9 +340,9 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         logger.info("----- Request Start ----->")
 
-        cmdName = "ID_REQ_" + request_path.replace("/", "")
+        cmd_name = request_path.replace("/", "")
 
-        logger.info("CMD-START: %s", cmdName)
+        logger.info("CMD-START: %s", cmd_name)
 
         request_headers = self.headers
         content_length = request_headers.get('Content-Length')
@@ -361,12 +361,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             # -- MASCOTS2020 --
             # is_successful = simulate_minimal_workload()
             # --
-            # is_successful = simulate_workload_random(cmdName)
-            is_successful = simulate_workload_using_predictive_model(cmdName)
+            # is_successful = simulate_workload_random(cmd_name)
+            is_successful = simulate_workload_using_predictive_model(cmd_name)
             stopwatch.stop()
             logger.info("Request execution time: %s", stopwatch)
 
-        logger.info("CMD-ENDE: %s", cmdName)
+        logger.info("CMD-ENDE: %s", cmd_name)
         logger.info("<----- Request End -----")
 
         self.send_response(200 if is_successful else 500)
