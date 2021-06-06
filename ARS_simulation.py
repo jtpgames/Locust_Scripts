@@ -232,8 +232,8 @@ def simulate_workload_random(function: str):
 number_of_parallel_requests_pending = 0
 startedCommands = {}
 
-predictive_model = load("gs_model_prod_workload.joblib")
-known_request_types = load("gs_requests_mapping_prod_workload.joblib")
+predictive_model = load("Models/gs_model_prod_workload.joblib")
+known_request_types = load("Models/gs_requests_mapping_prod_workload.joblib")
 
 
 def simulate_workload_using_predictive_model(function: str):

@@ -19,8 +19,8 @@ app = FastAPI(
 )
 
 workload_to_use = "gs"
-predictive_model = load(f"teastore_model_{workload_to_use}_workload.joblib")
-known_request_types = load(f"teastore_requests_{workload_to_use}_workload.joblib")
+predictive_model = load(f"Models/teastore_model_{workload_to_use}_workload.joblib")
+known_request_types = load(f"Models/teastore_requests_{workload_to_use}_workload.joblib")
 
 print(known_request_types)
 
