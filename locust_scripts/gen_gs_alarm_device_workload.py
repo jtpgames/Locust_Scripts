@@ -2,7 +2,7 @@
 import json
 import random
 
-from locust import task, between, User
+from locust import task, between, User, constant
 
 from common.common_locust import RepeatingHttpClient
 
@@ -24,7 +24,9 @@ class AlarmDevice(RepeatingHttpLocust):
     Simulates an alarm device, i.e., sends periodic alarm and repeats the transmission until it was successful.
     """
 
-    wait_time = between(1, 1)
+    # Wait time between 20 sec (SP6 devices) and 90 sec (DP4 devices) according to EN 50136-1
+    wait_time = between(20, 90)
+    # wait_time = constant(1)
 
     def send_alarm(self):
         json_msg = {

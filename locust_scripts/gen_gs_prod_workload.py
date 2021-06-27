@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import json
+import logging
 import random
 import re
 from datetime import datetime
@@ -35,6 +36,8 @@ class RealWorkloadShape(LoadTestShape):
     def __init__(self):
         super().__init__()
 
+        logger = logging.getLogger('RealWorkloadShape')
+
         self._max_requests_per_hour_within_the_workload = 0
 
         self._workload_pattern = dict()
@@ -56,6 +59,8 @@ class RealWorkloadShape(LoadTestShape):
             self._number_of_days_recorded += 1
 
         self._max_requests_per_hour_within_the_workload = max(self._workload_pattern.values())
+        logger.info(f"Requests per hour to send: {self._max_requests_per_hour_within_the_workload}")
+        logger.info(f"Requests per sec to send: {self._max_requests_per_hour_within_the_workload / 3600}")
 
     def tick(self):
         avg_requests_per_second = int(self._max_requests_per_hour_within_the_workload / 3600)
