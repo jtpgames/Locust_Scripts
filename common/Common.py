@@ -39,6 +39,12 @@ def readResponseTimesFromLogFile(path: str) -> Dict[datetime, float]:
             time_stamp = datetime.strptime(search('\\[.*\\]', line).group(), '[%Y-%m-%d %H:%M:%S,%f]')
             response_time = search('(?<=Response time\\s)\\d*', line).group()
 
+            while True:
+                if time_stamp in response_times.keys():
+                    time_stamp += timedelta(microseconds=100)
+                else:
+                    break
+
             response_times[time_stamp] = float(response_time) / 1000
 
     return response_times
