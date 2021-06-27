@@ -8,7 +8,7 @@ import os
 import logging
 import time
 
-from common.Common import call_locust_with
+from common.Common import call_locust_with, call_locust_and_distribute_work
 
 input_args = argparse.Namespace()
 
@@ -113,23 +113,27 @@ def parameter_variation_loop():
     logger = logging.getLogger('parameter_variation_loop')
 
     num_clients = 1
-    multiplier = 10
-    x = 0
+    multiplier = 5000
+    x = 1
 
     logger.info(f"Starting performance test.")
 
     is_first_run = True
     while config_complies_with_real_time_requirements(num_clients):
         if not is_first_run:
-            logger.info("Sleeping for 2 minutes ...")
-            time.sleep(2 * 60)
+            logger.info("Sleeping for 1 min ...")
+            time.sleep(60)
         is_first_run = False
 
         # start with one client, then increase linearly (multiplier, 2*multiplier, ... x*multiplier)
         num_clients = max(x * multiplier, 1)
         x += 1
 
-        call_locust_with(locust_script, url, num_clients, runtime_in_min=2)
+        if num_clients >= 40000:
+            multiplier = 1000
+
+        call_locust_and_distribute_work(locust_script, url, num_clients, runtime_in_min=10)
+        # call_locust_with(locust_script, url, num_clients, runtime_in_min=10, omit_csv_files=True)
 
         read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv", num_clients)
 

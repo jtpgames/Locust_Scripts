@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 from re import search
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict
 
 
@@ -50,6 +50,37 @@ def readResponseTimesFromLogFile(path: str) -> Dict[datetime, float]:
     return response_times
 
 
+def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min):
+    logger = logging.getLogger('call_locust_and_distribute_work')
+
+    params = f"-f {locust_script} "
+    params += f"--host={url} "
+    params += "--headless "
+
+    num_workers = 3
+    for i in range(0, num_workers):
+        logger.info(f"Starting {i+1}. worker")
+
+        os.system(
+            f"locust {params} \
+                --logfile worker_log_{clients}.{i+1}.log \
+                --worker &"
+        )
+
+    logger.info("Starting master to run for %s min", runtime_in_min)
+    logger.info(f"--expect-workers={num_workers}")
+
+    os.system(
+        f"locust {params} \
+            --run-time={runtime_in_min}m \
+            --users={clients} --spawn-rate={num_workers * 100} \
+            --logfile locust_log_{clients}.log \
+            --csv=loadtest_{clients}_clients \
+            --master \
+            --expect-workers={num_workers}"
+    )
+
+
 def call_locust_with(locust_script, url, clients, runtime_in_min=-1, omit_csv_files=False):
     logger = logging.getLogger('call_locust_with')
 
@@ -64,7 +95,7 @@ def call_locust_with(locust_script, url, clients, runtime_in_min=-1, omit_csv_fi
     if runtime_in_min > 0:
         os.system(
             f"locust {params} \
-            --users={clients} --spawn-rate=50 \
+            --users={clients} --spawn-rate=100 \
             --run-time={runtime_in_min}m \
             --logfile locust_log_{clients}.log"
         )
