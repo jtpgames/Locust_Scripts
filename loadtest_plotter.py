@@ -154,8 +154,8 @@ def plot_response_times(response_times, logfile):
 
     plt.axhline(en50136_max_response_time, color='r', label='Maximum response time allowed')
 
-    plt.axhline(28, color='orange', label='Expected min fault time')
-    plt.axhline(36, color='orange', label='Expected max fault time')
+    # plt.axhline(28, color='orange', label='Expected min fault time')
+    # plt.axhline(36, color='orange', label='Expected max fault time')
 
     # beautify the x-labels
     myFmt = mdates.DateFormatter('%H:%M:%S')
@@ -196,7 +196,7 @@ else:
     plt.plot(num_clients, avg_time_allowed, 'y--', label='Average time allowed')
     plt.plot(num_clients, max_time_allowed, 'r--', label='Maximum time allowed')
     # plt.plot(num_clients, min_response_time, label='min')
-    plt.plot(num_clients, average_response_time, label='mean')
+    plt.plot(num_clients, average_response_time, label='avg')
     plt.plot(num_clients, max_response_time, label='max')
 
     plt.xlabel('Number of alarm devices')
