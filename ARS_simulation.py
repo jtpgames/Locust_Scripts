@@ -26,9 +26,10 @@ import logging
 MASCOTS2020 = False
 
 fh = logging.FileHandler('ARS_simulation_{:%Y-%m-%d}.log'.format(datetime.now()))
-fh.setLevel(logging.DEBUG)
+fh.setLevel(logging.WARN)
 
 sh = logging.StreamHandler(sys.stdout)
+sh.setLevel(logging.WARN)
 
 logging.basicConfig(format="[%(thread)d] %(asctime)s.%(msecs)03d [%(levelname)s] %(message)s",
                     level=os.environ.get("LOGLEVEL", "DEBUG"),
@@ -229,6 +230,7 @@ def simulate_workload_random(function: str):
         return True
 
 
+pr_lock = threading.Lock()
 number_of_parallel_requests_pending = 0
 startedCommands = {}
 
@@ -244,8 +246,9 @@ def simulate_workload_using_predictive_model(function: str):
 
     global number_of_parallel_requests_pending
 
-    number_of_parallel_requests_at_beginning = number_of_parallel_requests_pending
-    number_of_parallel_requests_pending = number_of_parallel_requests_pending + 1
+    with pr_lock:
+        number_of_parallel_requests_at_beginning = number_of_parallel_requests_pending
+        number_of_parallel_requests_pending = number_of_parallel_requests_pending + 1
 
     tid = threading.get_ident()
 
@@ -273,12 +276,14 @@ def simulate_workload_using_predictive_model(function: str):
         # logger.debug("Waiting for {}".format(sleep_time_to_use))
         sleep(sleep_time_to_use)
 
-    number_of_parallel_requests_pending = number_of_parallel_requests_pending - 1
+    with pr_lock:
+        number_of_parallel_requests_pending -= 1
 
     startedCommands.pop(tid)
 
-    for cmd in startedCommands.values():
-        cmd["parallelCommandsFinished"] = cmd["parallelCommandsFinished"] + 1
+    with pr_lock:
+        for cmd in startedCommands.values():
+            cmd["parallelCommandsFinished"] = cmd["parallelCommandsFinished"] + 1
 
     # logger.debug(startedCommands)
 
@@ -322,6 +327,9 @@ def predict_sleep_time(model, tid, command):
 
 
 class RequestHandler(BaseHTTPRequestHandler):
+
+    def log_message(self, format, *args):
+        pass
 
     def do_GET(self):
 
