@@ -88,9 +88,6 @@ class RepeatingHttpLocust(User):
         self.client = RepeatingHttpClient(self.host)
 
 
-# initialize the random seed value to get reproducible random sequences
-random.seed(42)
-
 requests = set()
 
 with open("GS Production Workload/All_Request_Names.log") as logfile:
@@ -109,6 +106,12 @@ class LoadGenerator(RepeatingHttpLocust):
     This workload consists of requests that are executed by other components of the legacy system.
     """
     wait_time = constant(1)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # initialize the random seed value to get reproducible random sequences
+        random.seed(42)
 
     def do_request(self):
         cmd_to_use = random.choice(requests)

@@ -28,7 +28,14 @@ class AlarmDevice(RepeatingHttpLocust):
     wait_time = between(20, 90)
     # wait_time = constant(1)
 
+    is_first_alarm = True
+
     def send_alarm(self):
+        if self.is_first_alarm:
+            # wait before sending first alarm
+            self.wait()
+            self.is_first_alarm = False
+
         json_msg = {
             'id': "070010",
             'body': "alarm"

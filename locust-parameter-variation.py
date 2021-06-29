@@ -129,9 +129,6 @@ def parameter_variation_loop():
         num_clients = max(x * multiplier, 1)
         x += 1
 
-        if num_clients >= 40000:
-            multiplier = 1000
-
         call_locust_and_distribute_work(locust_script, url, num_clients, runtime_in_min=10)
         # call_locust_with(locust_script, url, num_clients, runtime_in_min=10, omit_csv_files=True)
 
