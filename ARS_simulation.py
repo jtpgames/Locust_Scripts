@@ -2,14 +2,16 @@
 # Simulates an ARS with workloads measured in a productive environment.
 # Set the constant MASCOTS2020 to True, in order to produce similar results as in our paper.
 # HTTPServer based on https://gist.github.com/huyng/814831 Written by Nathan Hamiel (2010)
-
+import asyncio
 import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler, ThreadingHTTPServer
 import argparse
 from random import random, seed
+from uuid import uuid1
 
 import sys
+import uvicorn
 from time import sleep
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -238,7 +240,7 @@ predictive_model = load("Models/gs_model_prod_workload.joblib")
 known_request_types = load("Models/gs_requests_mapping_prod_workload.joblib")
 
 
-def simulate_workload_using_predictive_model(function: str):
+async def simulate_workload_using_predictive_model(function: str, use_await=False):
     """
     This function sleeps for the amount of time predicted
     by a predictive model.
@@ -250,7 +252,10 @@ def simulate_workload_using_predictive_model(function: str):
         number_of_parallel_requests_at_beginning = number_of_parallel_requests_pending
         number_of_parallel_requests_pending = number_of_parallel_requests_pending + 1
 
-    tid = threading.get_ident()
+    if use_await:
+        tid = uuid1().int
+    else:
+        tid = threading.get_ident()
 
     startedCommands[tid] = {
         "cmd": function,
@@ -258,11 +263,14 @@ def simulate_workload_using_predictive_model(function: str):
         "parallelCommandsFinished": 0
     }
 
-    # logger.debug(startedCommands)
+    logger.debug(startedCommands)
 
     sleep_time_to_use = predict_sleep_time(predictive_model, tid, function)
-    # logger.debug("Waiting for {}".format(sleep_time_to_use))
-    sleep(sleep_time_to_use)
+    logger.debug(f"{function}: Waiting for {sleep_time_to_use}")
+    if use_await:
+        await asyncio.sleep(sleep_time_to_use)
+    else:
+        sleep(sleep_time_to_use)
 
     sleep_time_last_time = sleep_time_to_use
     while True:
@@ -273,8 +281,11 @@ def simulate_workload_using_predictive_model(function: str):
             sleep_time_to_use = sleep_time_test - sleep_time_last_time
 
         sleep_time_last_time = sleep_time_test
-        # logger.debug("Waiting for {}".format(sleep_time_to_use))
-        sleep(sleep_time_to_use)
+        logger.debug(f"{function}: Waiting for {sleep_time_to_use}")
+        if use_await:
+            await asyncio.sleep(sleep_time_to_use)
+        else:
+            sleep(sleep_time_to_use)
 
     with pr_lock:
         number_of_parallel_requests_pending -= 1
@@ -285,7 +296,7 @@ def simulate_workload_using_predictive_model(function: str):
         for cmd in startedCommands.values():
             cmd["parallelCommandsFinished"] = cmd["parallelCommandsFinished"] + 1
 
-    # logger.debug(startedCommands)
+    logger.debug(startedCommands)
 
     return True
 
@@ -400,6 +411,39 @@ def main():
     server.serve_forever()
 
 
+async def app(scope, receive, send):
+    assert scope['type'] == 'http'
+
+    request_path = scope['path']
+
+    logger.info("----- Request Start ----->")
+
+    cmd_name = request_path.replace("/", "")
+
+    logger.info("CMD-START: %s", cmd_name)
+
+    stopwatch = Stopwatch()
+
+    is_successful = await simulate_workload_using_predictive_model(cmd_name, use_await=True)
+    stopwatch.stop()
+    logger.info("Request execution time: %s", stopwatch)
+
+    logger.info("CMD-ENDE: %s", cmd_name)
+    logger.info("<----- Request End -----")
+
+    await send({
+        'type': 'http.response.start',
+        'status': 200 if is_successful else 500,
+        'headers': [
+            [b'content-type', b'text/plain'],
+        ]
+    })
+
+    await send({
+        'type': 'http.response.body'
+    })
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Simulate an Alarm Receiving Software (ARS) based on the behavior of a real-world ARS.'
@@ -417,4 +461,7 @@ if __name__ == "__main__":
     # initialize the random seed value to get reproducible random sequences
     seed(42)
 
-    main()
+    # use one worker for now, because the program is not using shared memory
+    uvicorn.run("ARS_simulation:app", host="127.0.0.1", port=1337, log_level="warning", workers=1)
+
+    # main()
