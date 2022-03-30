@@ -35,8 +35,11 @@ class RepeatingClient(ABC):
             try:
                 response, successfully_sent = self.send_impl(url, data)
                 logger.info("{} {}".format(response, successfully_sent))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error("Exception occurred: " + str(e))
+
+            if not successfully_sent:
+                logger.warning("Send failed. Repeating")
 
         stopwatch.stop()
         total_time_ms = int(stopwatch.duration * 1000)
