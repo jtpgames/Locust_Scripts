@@ -68,6 +68,10 @@ class PredictiveModel:
     max_processing_time_s: float
 
 
+class ThreadingHTTPServerWithBigQueue(ThreadingHTTPServer):
+    request_queue_size = 128
+
+
 # -- Fault Management Model --
 # (26, 34) are the minimum and maximum times,
 # the fault detection mechanism needs to detect a fault,
@@ -407,7 +411,8 @@ def main():
     port = 1337
     logger.info('Listening on localhost:%s' % port)
     # server = HTTPServer(('', port), RequestHandler)
-    server = ThreadingHTTPServer(('', port), RequestHandler)
+    # server = ThreadingHTTPServer(('', port), RequestHandler)
+    server = ThreadingHTTPServerWithBigQueue(('', port), RequestHandler)
     server.serve_forever()
 
 
@@ -462,6 +467,6 @@ if __name__ == "__main__":
     seed(42)
 
     # use one worker for now, because the program is not using shared memory
-    uvicorn.run("ARS_simulation:app", host="0.0.0.0", port=1337, log_level="warning", workers=1)
+    # uvicorn.run("ARS_simulation:app", host="127.0.0.1", port=1337, log_level="warning", workers=1, backlog = 128)
 
-    # main()
+    main()

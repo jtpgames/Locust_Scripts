@@ -28,18 +28,20 @@ class RepeatingClient(ABC):
 
         stopwatch = Stopwatch()
 
+        number_of_tries = 0
         response = None
         successfully_sent = False
         while not successfully_sent:
             # noinspection PyBroadException
             try:
+                number_of_tries += 1
                 response, successfully_sent = self.send_impl(url, data)
                 logger.info("{} {}".format(response, successfully_sent))
             except Exception as e:
-                logger.error("Exception occurred: " + str(e))
+                logger.error("%i. try: Exception occurred: %s", number_of_tries, str(e))
 
             if not successfully_sent:
-                logger.warning("Send failed. Repeating")
+                logger.warning("%i. try: Send failed. Repeating", number_of_tries)
 
         stopwatch.stop()
         total_time_ms = int(stopwatch.duration * 1000)
