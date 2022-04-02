@@ -16,8 +16,8 @@ class SimpleTopo( Topo ):
     def build( self ):
 
         # Add hosts and switches
-        alarm_system = self.addHost( 'as' )
-        alarm_receiving_centre = self.addHost( 'arc' )
+        alarm_system = self.addHost( 'h_as' )
+        alarm_receiving_centre = self.addHost( 'h_arc' )
         
         leftSwitch = self.addSwitch( 's1' )
         ispSwitch = self.addSwitch( 's2' )
@@ -42,9 +42,24 @@ class SimpleTopo( Topo ):
         self.addLink( rightSwitch, alarm_receiving_centre )
 
 
-def startars(self):
+def setup_python_on_host(host):
+    host.cmd('cd ../')
+    print("ARC: Current Working Directory:")
+    host.cmdPrint('pwd')
+    host.cmd('alias python=venv/bin/python')
+    host.cmd('alias python3=venv/bin/python3')
+    host.cmd('alias locust=venv/bin/locust')
+    host.cmdPrint('python --version')
+    host.cmdPrint('python3 --version')
+    host.cmdPrint('locust --version')
+
+
+def startars(self, args):
     """Starts the ARS on the ARC host"""
 
+    print(self)
+    print(args)
+    
     net = self.mn
     start_ARS(net)
 
@@ -52,19 +67,35 @@ def startars(self):
 def start_ARS(net):
     """Starts the ARS on the ARC host"""
 
-    arc = net.get('arc')
-    arc.cmd('cd ../')
-    print("ARC: Current Working Directory:")
-    arc.cmdPrint('pwd')
-    arc.cmd('alias python=venv/bin/python')
+    arc = net.get('h_arc')
+    setup_python_on_host(arc)
     print("ARC: Starting ARS.")
     arc.cmd('python ARS_simulation.py > mininet/ars.out &')
+
+
+def startprodworkload(self, args):
+    """Starts a locust test simulating the production workload"""
+
+    net = self.mn
+    start_production_workload(net)
+
+
+def start_production_workload(net):
+    """Starts a locust test simulating the production workload"""
+
+    h_as = net.get('h_as')
+    setup_python_on_host(h_as)
+
+    arc = net.get('h_arc')
+    cmd = 'python executor.py locust/gen_gs_prod_workload.py -u http://{}:1337 --silent > /dev/null 2>&1'.format(arc.IP())
+    h_as.cmdPrint("{} &".format(cmd))
 
 
 def LocustTest(net):
     
     start_ARS(net)
-    
+    start_production_workload(net)
+
     # net.start()
     CLI(net)
     # net.stop()
@@ -73,3 +104,4 @@ topos = { 'simple-topo': ( lambda: SimpleTopo() ) }
 tests = { 'LocustTest': LocustTest }
 
 CLI.do_startars = startars
+CLI.do_startprodworkload = startprodworkload

@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+from os import path
 from re import search
 from datetime import datetime, timedelta
 from typing import Dict
@@ -57,7 +58,7 @@ def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min)
     params += f"--host={url} "
     params += "--headless "
 
-    num_workers = 3
+    num_workers = 5
     for i in range(0, num_workers):
         logger.info(f"Starting {i+1}. worker")
 
@@ -91,17 +92,21 @@ def call_locust_with(locust_script, url, clients, runtime_in_min=-1, omit_csv_fi
     params += "--headless "
     if omit_csv_files is False:
         params += f"--csv=loadtest_{clients}_clients "
+    
+    locust_path = "locust"
+    if path.exists("venv/bin/locust"):
+        locust_path = "venv/bin/locust"
 
     if runtime_in_min > 0:
         os.system(
-            f"locust {params} \
+            f"{locust_path} {params} \
             --users={clients} --spawn-rate=100 \
             --run-time={runtime_in_min}m \
             --logfile locust_log_{clients}.log"
         )
     else:
         os.system(
-            f"locust {params} \
+            f"{locust_path} {params} \
             --users={clients} --spawn-rate={clients} \
             --logfile locust_log.log"
         )
