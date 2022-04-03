@@ -25,21 +25,32 @@ class SimpleTopo( Topo ):
 
         # Add links
 
+        # Oversimplified links for testing purposes
+        linkopts = {'delay':'1s' }
+        self.addLink( alarm_system, leftSwitch, **linkopts )
+        linkopts = {'delay':'2s' }
+        self.addLink( leftSwitch, rightSwitch, **linkopts )
+        linkopts = {'delay':'1s' }
+        self.addLink( rightSwitch, alarm_receiving_centre, **linkopts )
+
+        return
+        
+        # Simulate production system
         # customer has 1 Gigabit Ethernet (GbE) connection to his router 
         linkopts = {'bw':1000, 'delay':'1ms' }
-        self.addLink( alarm_system, leftSwitch )
+        self.addLink( alarm_system, leftSwitch, **linkopts )
 
         # customer has VDSL 100 (100 MBit Download, 40 MBit Upload) 
         linkopts = {'bw':40, 'delay':'1ms' }
-        self.addLink( leftSwitch, ispSwitch )
+        self.addLink( leftSwitch, ispSwitch, **linkopts )
         
         # alarm provider has SDSL 100 (100 MBit Down- /Upload)
         linkopts = {'bw':100, 'delay':'1ms' }
-        self.addLink( ispSwitch, rightSwitch )
+        self.addLink( ispSwitch, rightSwitch, **linkopts )
 
         # alarm provider has 1 GbE connection to his router
         linkopts = {'bw':1000, 'delay':'0.3ms', 'loss':16 }
-        self.addLink( rightSwitch, alarm_receiving_centre )
+        self.addLink( rightSwitch, alarm_receiving_centre, **linkopts )
 
 
 python_configured_hosts = []
