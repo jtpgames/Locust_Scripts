@@ -42,7 +42,13 @@ class SimpleTopo( Topo ):
         self.addLink( rightSwitch, alarm_receiving_centre )
 
 
+python_configured_hosts = []
+
+
 def setup_python_on_host(host):
+    if host in python_configured_hosts:
+        return
+
     host.cmd('cd ../')
     print("ARC: Current Working Directory:")
     host.cmdPrint('pwd')
@@ -52,6 +58,8 @@ def setup_python_on_host(host):
     host.cmdPrint('python --version')
     host.cmdPrint('python3 --version')
     host.cmdPrint('locust --version')
+
+    python_configured_hosts.append(host)
 
 
 def startars(self, args):
@@ -68,9 +76,10 @@ def start_ARS(net):
     """Starts the ARS on the ARC host"""
 
     arc = net.get('h_arc')
-    setup_python_on_host(arc)
+    setup_python_on_host(arc) 
+
     print("ARC: Starting ARS.")
-    arc.cmd('python ARS_simulation.py > mininet/ars.out &')
+    arc.cmd('python ARS_simulation.py > mininet/ars.out 2>&1 &')
 
 
 def startprodworkload(self, args):
@@ -84,17 +93,55 @@ def start_production_workload(net):
     """Starts a locust test simulating the production workload"""
 
     h_as = net.get('h_as')
+    arc = net.get('h_arc')
+    
     setup_python_on_host(h_as)
 
-    arc = net.get('h_arc')
     cmd = 'python executor.py locust/gen_gs_prod_workload.py -u http://{}:1337 --silent > /dev/null 2>&1'.format(arc.IP())
-    h_as.cmdPrint("{} &".format(cmd))
+    print("AS: Starting Production Workload ...")
+    print(cmd)
 
+    cmd_output = h_as.cmd("{} &".format(cmd))
+    print(cmd_output)
+
+
+def startasworkload(self, args):
+    """Starts a locust test simulating one or many alarm devices"""
+
+    net = self.mn
+    start_alarm_system_workload(net)
+
+
+def start_alarm_system_workload(net):
+    """Starts a locust test simulating one or many alarm devices"""
+
+    h_as = net.get('h_as')
+    arc = net.get('h_arc')
+
+    setup_python_on_host(h_as)
+
+    # > /dev/null 2>&1'
+
+    cmd = 'python locust-parameter-variation.py locust/gen_gs_alarm_device_workload.py -u http://{}:1337 -p'.format(arc.IP())
+    print("AS: Starting Production Workload ...")
+    print(cmd)
+
+    cmd_output = h_as.cmd("{} &".format(cmd))
+    print(cmd_output)
+
+
+def stop_workloads(self, args):
+    """Stop all running workloads"""
+
+    net = self.mn
+    h_as = net.get('h_as')
+
+    h_as.cmd('killall locust')
 
 def LocustTest(net):
     
     start_ARS(net)
-    start_production_workload(net)
+    # start_production_workload(net)
 
     # net.start()
     CLI(net)
@@ -105,3 +152,5 @@ tests = { 'LocustTest': LocustTest }
 
 CLI.do_startars = startars
 CLI.do_startprodworkload = startprodworkload
+CLI.do_startasworkload = startasworkload
+CLI.do_stopworkloads = stop_workloads

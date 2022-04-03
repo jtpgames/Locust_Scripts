@@ -30,15 +30,15 @@ def complete_python(text, state):
     return [x for x in glob.glob(text + '*.py')][state]
 
 
-if plt != "Windows":
-    readline.set_completer_delims(' \t\n;')
-    readline.parse_and_bind("tab: complete")
-    readline.set_completer(complete_python)
+#if plt != "Windows":
+#    readline.set_completer_delims(' \t\n;')
+#    readline.parse_and_bind("tab: complete")
+#    readline.set_completer(complete_python)
 
-locust_script = input('Path to the Locust script: ')
+#locust_script = input('Path to the Locust script: ')
 
-if plt != "Windows":
-    readline.set_completer(None)
+#if plt != "Windows":
+#    readline.set_completer(None)
 
 # url = input('URL of the software to test: ')
 
@@ -113,7 +113,7 @@ def parameter_variation_loop():
     logger = logging.getLogger('parameter_variation_loop')
 
     num_clients = 1
-    multiplier = 5000
+    multiplier = 10000
     x = 1
 
     logger.info(f"Starting performance test.")
@@ -139,7 +139,9 @@ def parameter_variation_loop():
 
 def read_cli_args():
     parser = argparse.ArgumentParser(description='Locust Wrapper.')
+    parser.add_argument('locust_script', help='Path to the locust script to execute')
     parser.add_argument('-p', '--parametervariation', action='store_true', help='run the test and variate parameters.')
+    parser.add_argument('-u', '--url', help='URL of the System under Test')
 
     global input_args
 
@@ -149,6 +151,10 @@ def read_cli_args():
 
 if __name__ == "__main__":
     read_cli_args()
+
+    locust_script = input_args.locust_script
+    if input_args.url:
+        url = input_args.url
 
     if input_args.parametervariation:
         parameter_variation_loop()

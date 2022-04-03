@@ -58,12 +58,17 @@ def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min)
     params += f"--host={url} "
     params += "--headless "
 
+    locust_path = "locust"
+    if path.exists("venv/bin/locust"):
+        locust_path = "venv/bin/locust"
+
+
     num_workers = 5
     for i in range(0, num_workers):
         logger.info(f"Starting {i+1}. worker")
 
         os.system(
-            f"locust {params} \
+            f"{locust_path} {params} \
                 --logfile worker_log_{clients}.{i+1}.log \
                 --worker &"
         )
@@ -72,7 +77,7 @@ def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min)
     logger.info(f"--expect-workers={num_workers}")
 
     os.system(
-        f"locust {params} \
+        f"{locust_path} {params} \
             --run-time={runtime_in_min}m \
             --users={clients} --spawn-rate={num_workers * 100} \
             --logfile locust_log_{clients}.log \
