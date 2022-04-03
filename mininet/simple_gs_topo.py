@@ -79,7 +79,7 @@ def start_ARS(net):
     setup_python_on_host(arc) 
 
     print("ARC: Starting ARS.")
-    arc.cmd('python ARS_simulation.py > mininet/ars.out 2>&1 &')
+    arc.cmd('python ARS_simulation.py &> mininet/ars.out &')
 
 
 def startprodworkload(self, args):
@@ -97,11 +97,11 @@ def start_production_workload(net):
     
     setup_python_on_host(h_as)
 
-    cmd = 'python executor.py locust/gen_gs_prod_workload.py -u http://{}:1337 --silent > /dev/null 2>&1'.format(arc.IP())
+    cmd = 'python executor.py locust/gen_gs_prod_workload.py -u http://{}:1337 --silent'.format(arc.IP())
     print("AS: Starting Production Workload ...")
     print(cmd)
 
-    cmd_output = h_as.cmd("{} &".format(cmd))
+    cmd_output = h_as.cmd("{} &> /dev/null &".format(cmd))
     print(cmd_output)
 
 
@@ -120,13 +120,11 @@ def start_alarm_system_workload(net):
 
     setup_python_on_host(h_as)
 
-    # > /dev/null 2>&1'
-
     cmd = 'python locust-parameter-variation.py locust/gen_gs_alarm_device_workload.py -u http://{}:1337 -p'.format(arc.IP())
     print("AS: Starting Production Workload ...")
     print(cmd)
 
-    cmd_output = h_as.cmd("{} &".format(cmd))
+    cmd_output = h_as.cmd("{} &> /dev/null &".format(cmd))
     print(cmd_output)
 
 
