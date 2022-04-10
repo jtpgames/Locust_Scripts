@@ -12,7 +12,7 @@ class RepeatingHttpLocust(User):
 
     def __init__(self, *args, **kwargs):
         super(RepeatingHttpLocust, self).__init__(*args, **kwargs)
-        self.client = RepeatingHttpClient(self.host)
+        self.client = RepeatingHttpClient(self.host, self)
 
 
 # initialize the random seed value to get reproducible random sequences

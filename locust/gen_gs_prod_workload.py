@@ -36,9 +36,8 @@ class RealWorkloadShape(LoadTestShape):
     def __init__(self):
         super().__init__()
 
-        logger = logging.getLogger('RealWorkloadShape')
-
         self._max_requests_per_hour_within_the_workload = 0
+        self._max_requests_per_second_within_the_workload = 0
 
         self._workload_pattern = dict()
 
@@ -47,7 +46,14 @@ class RealWorkloadShape(LoadTestShape):
             print(file_path)
             with open(file_path) as logfile:
                 for line in logfile:
-                    # TODO Take RPS
+                    requests_per_second = re.search('(?<=RPS:\\s)\\d*', line)
+                    if requests_per_second is not None:
+                        requests_per_second = int(requests_per_second.group())
+                        self._max_requests_per_second_within_the_workload = max(
+                            self._max_requests_per_second_within_the_workload,
+                            requests_per_second
+                        )
+
                     requests_per_hour = re.search('(?<=RPH:\\s)\\d*', line)
                     if requests_per_hour is None:
                         continue
@@ -60,11 +66,11 @@ class RealWorkloadShape(LoadTestShape):
             self._number_of_days_recorded += 1
 
         self._max_requests_per_hour_within_the_workload = max(self._workload_pattern.values())
-        logger.info(f"Requests per hour to send: {self._max_requests_per_hour_within_the_workload}")
-        logger.info(f"Requests per sec to send: {self._max_requests_per_hour_within_the_workload / 3600}")
+        print(f"Requests per hour to send: {self._max_requests_per_hour_within_the_workload}")
+        print(f"Requests per sec to send: {self._max_requests_per_second_within_the_workload}")
 
     def tick(self):
-        avg_requests_per_second = int(self._max_requests_per_hour_within_the_workload / 3600)
+        avg_requests_per_second = int(self._max_requests_per_second_within_the_workload)
         return avg_requests_per_second, avg_requests_per_second
 
         # run_time = self.get_run_time()
@@ -86,7 +92,7 @@ class RepeatingHttpLocust(User):
 
     def __init__(self, *args, **kwargs):
         super(RepeatingHttpLocust, self).__init__(*args, **kwargs)
-        self.client = RepeatingHttpClient(self.host)
+        self.client = RepeatingHttpClient(self.host, self)
 
 
 requests = set()
