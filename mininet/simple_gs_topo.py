@@ -97,6 +97,8 @@ def start_ARS(net):
     arc = net.get('h_arc')
     setup_python_on_host(arc) 
 
+    arc.cmd('./start_sysstat.sh arc')
+
     print("ARC: Starting ARS.")
     arc.cmd('python ARS_simulation.py &> mininet/ars.out &')
 
@@ -138,6 +140,8 @@ def start_alarm_system_workload(net):
     arc = net.get('h_arc')
 
     setup_python_on_host(h_as)
+
+    h_as.cmd('./start_sysstat.sh alarm_system')
 
     cmd = 'python locust-parameter-variation.py locust/gen_gs_alarm_device_workload.py -u http://{}:1337 -p'.format(arc.IP())
     print("AS: Starting Alarm Device Workload ...")
