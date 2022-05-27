@@ -119,6 +119,9 @@ def start_production_workload(net):
     
     setup_python_on_host(h_as)
 
+    h_as.cmd('./start_sysstat.sh alarm_system')
+    time.sleep(5)
+
     cmd = 'python executor.py locust/gen_gs_prod_workload.py -u http://{}:1337 --silent'.format(arc.IP())
     print("AS: Starting Production Workload ...")
     print(cmd)
@@ -141,9 +144,6 @@ def start_alarm_system_workload(net):
     arc = net.get('h_arc')
 
     setup_python_on_host(h_as)
-
-    h_as.cmd('./start_sysstat.sh alarm_system')
-    time.sleep(5)
 
     cmd = 'python locust-parameter-variation.py locust/gen_gs_alarm_device_workload.py -u http://{}:1337 -p'.format(arc.IP())
     print("AS: Starting Alarm Device Workload ...")
