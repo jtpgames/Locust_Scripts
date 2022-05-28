@@ -115,6 +115,7 @@ def parameter_variation_loop():
     num_clients = 1
     multiplier = 10000
     x = 1
+    y = 0
 
     logger.info(f"Starting performance test.")
 
@@ -126,8 +127,13 @@ def parameter_variation_loop():
         is_first_run = False
 
         # start with one client, then increase linearly (multiplier, 2*multiplier, ... x*multiplier)
-        num_clients = max(x * multiplier, 1)
-        x += 1
+        # until the number of clients exceeds the threshold. 
+        # After that, keep increasing with one tenth of the multiplier (x*multiplier + y*multiplier/10)
+        num_clients = max(x * multiplier + y * int(multiplier / 10), 1)
+        if num_clients >= 40000:
+            y += 1
+        else:
+            x += 1
 
         call_locust_and_distribute_work(locust_script, url, num_clients, runtime_in_min=10)
         # call_locust_with(locust_script, url, num_clients, runtime_in_min=10, omit_csv_files=True)
