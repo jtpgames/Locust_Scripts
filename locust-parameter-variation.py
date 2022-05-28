@@ -113,7 +113,7 @@ def parameter_variation_loop():
     logger = logging.getLogger('parameter_variation_loop')
 
     num_clients = 1
-    multiplier = 10000
+    multiplier = 5000
     x = 1
     y = 0
 
@@ -126,7 +126,7 @@ def parameter_variation_loop():
             time.sleep(60)
         is_first_run = False
 
-        # start with one client, then increase linearly (multiplier, 2*multiplier, ... x*multiplier)
+        # start with multiplier clients, then increase linearly (2*multiplier, ... x*multiplier)
         # until the number of clients exceeds the threshold. 
         # After that, keep increasing with one tenth of the multiplier (x*multiplier + y*multiplier/10)
         num_clients = max(x * multiplier + y * int(multiplier / 10), 1)
