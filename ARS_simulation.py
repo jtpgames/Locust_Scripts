@@ -2,6 +2,7 @@
 # Simulates an ARS with workloads measured in a productive environment.
 # Set the constant MASCOTS2020 to True, in order to produce similar results as in our paper.
 # HTTPServer based on https://gist.github.com/huyng/814831 Written by Nathan Hamiel (2010)
+import multiprocessing
 import asyncio
 import os
 import threading
@@ -236,9 +237,9 @@ def simulate_workload_random(function: str):
         return True
 
 
-pr_lock = threading.Lock()
-number_of_parallel_requests_pending = 0
-startedCommands = {}
+pr_lock = multiprocessing.Lock()
+number_of_parallel_requests_pending = multiprocessing.Value('i', 0)
+startedCommands = multiprocessing.Manager().dict({})
 
 predictive_model = load("Models/gs_model_prod_workload.joblib")
 known_request_types = load("Models/gs_requests_mapping_prod_workload.joblib")
@@ -253,19 +254,20 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
     global number_of_parallel_requests_pending
 
     with pr_lock:
-        number_of_parallel_requests_at_beginning = number_of_parallel_requests_pending
-        number_of_parallel_requests_pending = number_of_parallel_requests_pending + 1
+        number_of_parallel_requests_at_beginning = number_of_parallel_requests_pending.value
+        number_of_parallel_requests_pending.value += 1
 
     if use_await:
         tid = uuid1().int
     else:
         tid = threading.get_ident()
 
-    startedCommands[tid] = {
-        "cmd": function,
-        "parallelCommandsStart": number_of_parallel_requests_at_beginning,
-        "parallelCommandsFinished": 0
-    }
+    with pr_lock:
+        startedCommands[tid] = {
+            "cmd": function,
+            "parallelCommandsStart": number_of_parallel_requests_at_beginning,
+            "parallelCommandsFinished": 0
+        }
 
     logger.debug(startedCommands)
 
@@ -292,9 +294,10 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
             sleep(sleep_time_to_use)
 
     with pr_lock:
-        number_of_parallel_requests_pending -= 1
+        number_of_parallel_requests_pending.value -= 1
 
-    startedCommands.pop(tid)
+    with pr_lock:
+        startedCommands.pop(tid)
 
     with pr_lock:
         for cmd in startedCommands.values():
@@ -325,11 +328,11 @@ def predict_sleep_time(model, tid, command):
     #            request_type_as_int,
     #            1]) \
     #     .reshape(1, -1)
-
-    X = array([startedCommands[tid]["parallelCommandsStart"],
-               startedCommands[tid]["parallelCommandsFinished"],
-               request_type_as_int]) \
-        .reshape(1, -1)
+    with pr_lock:
+        X = array([startedCommands[tid]["parallelCommandsStart"],
+                startedCommands[tid]["parallelCommandsFinished"],
+                request_type_as_int]) \
+            .reshape(1, -1)
 
     # print(f"X: {X}")
     y = model.predict(X)
@@ -448,6 +451,22 @@ async def app(scope, receive, send):
         'type': 'http.response.body'
     })
 
+import gunicorn.app.base
+class StandaloneApplication(gunicorn.app.base.BaseApplication):
+
+    def __init__(self, app, options=None):
+        self.options = options or {}
+        self.application = app
+        super().__init__()
+
+    def load_config(self):
+        config = {key: value for key, value in self.options.items()
+                  if key in self.cfg.settings and value is not None}
+        for key, value in config.items():
+            self.cfg.set(key.lower(), value)
+
+    def load(self):
+        return self.application
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -469,4 +488,13 @@ if __name__ == "__main__":
     # use one worker for now, because the program is not using shared memory
     # uvicorn.run("ARS_simulation:app", host="127.0.0.1", port=1337, log_level="warning", workers=1, backlog = 128)
 
-    main()
+    #main()
+
+    options = {
+        'bind': '%s:%s' % ('127.0.0.1', '1337'),
+        'workers': 4,
+        'worker_class': 'uvicorn.workers.UvicornWorker',
+        'preload': True,
+        'backlog': 128
+    }
+    StandaloneApplication(app, options).run()
