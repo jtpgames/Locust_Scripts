@@ -29,7 +29,7 @@ import logging
 MASCOTS2020 = False
 
 fh = logging.FileHandler('ARS_simulation_{:%Y-%m-%d}.log'.format(datetime.now()))
-fh.setLevel(logging.WARN)
+fh.setLevel(logging.DEBUG)
 
 sh = logging.StreamHandler(sys.stdout)
 sh.setLevel(logging.WARN)
@@ -300,8 +300,10 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
         startedCommands.pop(tid)
 
     with pr_lock:
-        for cmd in startedCommands.values():
-            cmd["parallelCommandsFinished"] = cmd["parallelCommandsFinished"] + 1
+        for key in startedCommands:
+            temp = startedCommands[key]
+            temp["parallelCommandsFinished"] = temp["parallelCommandsFinished"] + 1
+            startedCommands[key] = temp
 
     logger.debug(startedCommands)
 
@@ -486,7 +488,7 @@ if __name__ == "__main__":
     seed(42)
 
     # use one worker for now, because the program is not using shared memory
-    # uvicorn.run("ARS_simulation:app", host="127.0.0.1", port=1337, log_level="warning", workers=1, backlog = 128)
+    #uvicorn.run("ARS_simulation:app", host="127.0.0.1", port=1337, log_level="warning", workers=2, backlog = 128)
 
     #main()
 
@@ -494,7 +496,9 @@ if __name__ == "__main__":
         'bind': '%s:%s' % ('127.0.0.1', '1337'),
         'workers': 4,
         'worker_class': 'uvicorn.workers.UvicornWorker',
-        'preload': True,
+        'preload': True, # this has no effect. according to the docs: https://docs.gunicorn.org/en/stable/settings.html#preload-app this should be called preload_app which also does not seem to change anything.
         'backlog': 128
     }
     StandaloneApplication(app, options).run()
+
+    # gunicorn ARS_simulation:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:1337 --preload --backlog 128
