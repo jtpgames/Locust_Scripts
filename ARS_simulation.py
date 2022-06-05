@@ -257,6 +257,8 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
         #number_of_parallel_requests_at_beginning = number_of_parallel_requests_pending.value
         #number_of_parallel_requests_pending.value += 1
 
+    process_id = os.getpid()
+    
     if use_await:
         tid = uuid1().int
     else:
@@ -270,7 +272,7 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
         }
         number_of_parallel_requests_pending.value += 1
 
-        logger.debug(f"on start: [{number_of_parallel_requests_pending.value}] : {str(startedCommands)}")
+        logger.debug(f"pid [{process_id}] on start: [{number_of_parallel_requests_pending.value}] : {str(startedCommands)}")
 
     sleep_time_to_use = predict_sleep_time(predictive_model, tid, function)
     logger.debug(f"{function}: Waiting for {sleep_time_to_use}")
@@ -301,7 +303,7 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
             temp = startedCommands[key]
             temp["parallelCommandsFinished"] += 1
             startedCommands[key] = temp
-        logger.debug(f"on end: [{number_of_parallel_requests_pending.value}] : {str(startedCommands)}")
+        logger.debug(f"pid [{process_id}] on end: [{number_of_parallel_requests_pending.value}] : {str(startedCommands)}")
 
     return True
 
