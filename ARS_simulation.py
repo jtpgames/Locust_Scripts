@@ -253,9 +253,9 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
 
     global number_of_parallel_requests_pending
 
-    with pr_lock:
-        number_of_parallel_requests_at_beginning = number_of_parallel_requests_pending.value
-        number_of_parallel_requests_pending.value += 1
+    #with pr_lock:
+        #number_of_parallel_requests_at_beginning = number_of_parallel_requests_pending.value
+        #number_of_parallel_requests_pending.value += 1
 
     if use_await:
         tid = uuid1().int
@@ -265,11 +265,12 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
     with pr_lock:
         startedCommands[tid] = {
             "cmd": function,
-            "parallelCommandsStart": number_of_parallel_requests_at_beginning,
+            "parallelCommandsStart": number_of_parallel_requests_pending.value,
             "parallelCommandsFinished": 0
         }
+        number_of_parallel_requests_pending.value += 1
 
-    logger.debug(startedCommands)
+        logger.debug(f"on start: [{number_of_parallel_requests_pending.value}] : {str(startedCommands)}")
 
     sleep_time_to_use = predict_sleep_time(predictive_model, tid, function)
     logger.debug(f"{function}: Waiting for {sleep_time_to_use}")
@@ -295,17 +296,12 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
 
     with pr_lock:
         number_of_parallel_requests_pending.value -= 1
-
-    with pr_lock:
         startedCommands.pop(tid)
-
-    with pr_lock:
         for key in startedCommands:
             temp = startedCommands[key]
-            temp["parallelCommandsFinished"] = temp["parallelCommandsFinished"] + 1
+            temp["parallelCommandsFinished"] += 1
             startedCommands[key] = temp
-
-    logger.debug(startedCommands)
+        logger.debug(f"on end: [{number_of_parallel_requests_pending.value}] : {str(startedCommands)}")
 
     return True
 
