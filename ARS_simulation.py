@@ -29,7 +29,7 @@ import logging
 MASCOTS2020 = False
 
 fh = logging.FileHandler('ARS_simulation_{:%Y-%m-%d}.log'.format(datetime.now()))
-fh.setLevel(logging.DEBUG)
+fh.setLevel(logging.WARN)
 
 sh = logging.StreamHandler(sys.stdout)
 sh.setLevel(logging.WARN)
@@ -300,9 +300,9 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
         number_of_parallel_requests_pending.value -= 1
         startedCommands.pop(tid)
         for key in startedCommands:
-            temp = startedCommands[key]
-            temp["parallelCommandsFinished"] += 1
-            startedCommands[key] = temp
+            cmd = startedCommands[key]
+            cmd["parallelCommandsFinished"] += 1
+            startedCommands[key] = cmd
         logger.debug(f"pid [{process_id}] on end: [{number_of_parallel_requests_pending.value}] : {str(startedCommands)}")
 
     return True
