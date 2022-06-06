@@ -2,6 +2,7 @@
 # Simulates an ARS with workloads measured in a productive environment.
 # Set the constant MASCOTS2020 to True, in order to produce similar results as in our paper.
 # HTTPServer based on https://gist.github.com/huyng/814831 Written by Nathan Hamiel (2010)
+import multiprocessing
 import asyncio
 import os
 import threading
@@ -236,9 +237,9 @@ def simulate_workload_random(function: str):
         return True
 
 
-pr_lock = threading.Lock()
-number_of_parallel_requests_pending = 0
-startedCommands = {}
+pr_lock = multiprocessing.Lock()
+number_of_parallel_requests_pending = multiprocessing.Value('i', 0)
+startedCommands = multiprocessing.Manager().dict({})
 
 predictive_model = load("Models/gs_model_prod_workload.joblib")
 known_request_types = load("Models/gs_requests_mapping_prod_workload.joblib")
@@ -252,22 +253,26 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
 
     global number_of_parallel_requests_pending
 
-    with pr_lock:
-        number_of_parallel_requests_at_beginning = number_of_parallel_requests_pending
-        number_of_parallel_requests_pending = number_of_parallel_requests_pending + 1
+    #with pr_lock:
+        #number_of_parallel_requests_at_beginning = number_of_parallel_requests_pending.value
+        #number_of_parallel_requests_pending.value += 1
 
+    process_id = os.getpid()
+    
     if use_await:
         tid = uuid1().int
     else:
         tid = threading.get_ident()
 
-    startedCommands[tid] = {
-        "cmd": function,
-        "parallelCommandsStart": number_of_parallel_requests_at_beginning,
-        "parallelCommandsFinished": 0
-    }
+    with pr_lock:
+        startedCommands[tid] = {
+            "cmd": function,
+            "parallelCommandsStart": number_of_parallel_requests_pending.value,
+            "parallelCommandsFinished": 0
+        }
+        number_of_parallel_requests_pending.value += 1
 
-    logger.debug(startedCommands)
+        logger.debug(f"pid [{process_id}] on start: [{number_of_parallel_requests_pending.value}] : {str(startedCommands)}")
 
     sleep_time_to_use = predict_sleep_time(predictive_model, tid, function)
     logger.debug(f"{function}: Waiting for {sleep_time_to_use}")
@@ -292,15 +297,13 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
             sleep(sleep_time_to_use)
 
     with pr_lock:
-        number_of_parallel_requests_pending -= 1
-
-    startedCommands.pop(tid)
-
-    with pr_lock:
-        for cmd in startedCommands.values():
-            cmd["parallelCommandsFinished"] = cmd["parallelCommandsFinished"] + 1
-
-    logger.debug(startedCommands)
+        number_of_parallel_requests_pending.value -= 1
+        startedCommands.pop(tid)
+        for key in startedCommands:
+            cmd = startedCommands[key]
+            cmd["parallelCommandsFinished"] += 1
+            startedCommands[key] = cmd
+        logger.debug(f"pid [{process_id}] on end: [{number_of_parallel_requests_pending.value}] : {str(startedCommands)}")
 
     return True
 
@@ -325,11 +328,11 @@ def predict_sleep_time(model, tid, command):
     #            request_type_as_int,
     #            1]) \
     #     .reshape(1, -1)
-
-    X = array([startedCommands[tid]["parallelCommandsStart"],
-               startedCommands[tid]["parallelCommandsFinished"],
-               request_type_as_int]) \
-        .reshape(1, -1)
+    with pr_lock:
+        X = array([startedCommands[tid]["parallelCommandsStart"],
+                startedCommands[tid]["parallelCommandsFinished"],
+                request_type_as_int]) \
+            .reshape(1, -1)
 
     # print(f"X: {X}")
     y = model.predict(X)
@@ -448,6 +451,22 @@ async def app(scope, receive, send):
         'type': 'http.response.body'
     })
 
+import gunicorn.app.base
+class StandaloneApplication(gunicorn.app.base.BaseApplication):
+
+    def __init__(self, app, options=None):
+        self.options = options or {}
+        self.application = app
+        super().__init__()
+
+    def load_config(self):
+        config = {key: value for key, value in self.options.items()
+                  if key in self.cfg.settings and value is not None}
+        for key, value in config.items():
+            self.cfg.set(key.lower(), value)
+
+    def load(self):
+        return self.application
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -467,6 +486,17 @@ if __name__ == "__main__":
     seed(42)
 
     # use one worker for now, because the program is not using shared memory
-    # uvicorn.run("ARS_simulation:app", host="127.0.0.1", port=1337, log_level="warning", workers=1, backlog = 128)
+    #uvicorn.run("ARS_simulation:app", host="127.0.0.1", port=1337, log_level="warning", workers=2, backlog = 128)
 
-    main()
+    #main()
+
+    options = {
+        'bind': '%s:%s' % ('127.0.0.1', '1337'),
+        'workers': 4,
+        'worker_class': 'uvicorn.workers.UvicornWorker',
+        'preload': True, # this has no effect. according to the docs: https://docs.gunicorn.org/en/stable/settings.html#preload-app this should be called preload_app which also does not seem to change anything.
+        'backlog': 128
+    }
+    StandaloneApplication(app, options).run()
+
+    # gunicorn ARS_simulation:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:1337 --preload --backlog 128
