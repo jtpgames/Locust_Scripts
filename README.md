@@ -1,15 +1,40 @@
-TODOs
---
-- [x] Reference to published paper or online version of it
-- [x] loadtest_plotter.py: Cleanup and reading data from files
-- [ ] ARS_simulation.py: Cleanup, documentation and control workloads and parameters of the simulation model through CLI
-- [x] locust-parameter-variation.py: Cleanup and Documentation
-- [ ] Move the files into subfolders (Executors, Load Testers, Evaluators, Systems under Test)
-
-Locust Performance Testing Infrastructure
+RAST Simulator and Load Tester Components (MASCOTS 2022)
 ---
+**Last change from: 25.06.2022**
 
-In [[1]](https://www.doi.org/10.1007/978-3-030-68110-4_9) we introduced a 
+In our latest publication (currently in review), we explain our extension of this project.
+* We provide a regression model learned from log files using our RAST approach;
+* we improved the Simulator so that it uses the regression model to simulate processing times of the System-Under-Evaluation (SUE);
+* we built a [mininet](http://mininet.org/) topology to ease the process of reproducibly launching experiments. 
+We modelled the link parameters based on the infrastructure of the SUE;
+* we implemented additional ancillary Python scripts to help analyse the log files.
+
+# Instructions to launch an experiment
+## Quick start
+* Clone the repository
+* run `cd <the_directory_you_cloned_the_repository>`
+* run `pip3 install -r requirements.txt`
+* install mininet using the command `sudo apt-get install mininet` (in case you need additional help, consult the [mininet documentation](http://mininet.org/download/)
+* run `cd mininet`
+* execute `./start_mininet.sh`
+* if mininet successfully started the experiment, you will notice a series of log files that were created:
+    * ARS_simulation.log (means that the Simulator is running)
+    * locust-parameter-variation.log (means that the load tester is generating the alarm device workload)
+    * locust.log (means that the load tester is generating the background workload)
+* in another terminal, run `cd <the_directory_you_cloned_the_repository>`
+* run `tail -f locust-parameter-variation.log`
+* the experiment may run for a couple of hours. 
+The experiment ends, once the locust-parameter-variation.log prints the message "Finished performance test. System failed at ..."
+* after that, you can analyse the log files. 
+The locust-parameter-variation.log is of particular interest 
+as it contains the measured average and maximum response times 
+depending on the number of simulated alarm devices.
+
+Locust Performance Testing Infrastructure (MASCOTS 2020)
+---
+**Last change from: 06.06.2021**
+
+In [[1]](https://www.doi.org/10.1007/978-3-030-68110-4_9), we introduced a 
 generic performance testing infrastructure and used it in an industrial case study. 
 Our idea is to have decoupled components, 
 Python scripts in our case, that together allow to:
