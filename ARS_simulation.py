@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # Simulates an ARS with workloads measured in a productive environment.
 # Set the constant MASCOTS2020 to True, in order to produce similar results as in our paper.
+# Leave the file as it is to reproduce our work published at MASCOTS2022
 # HTTPServer based on https://gist.github.com/huyng/814831 Written by Nathan Hamiel (2010)
 import asyncio
 import os
 import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import argparse
 from random import random, seed
 from uuid import uuid1
@@ -225,7 +226,7 @@ def simulate_workload_random(function: str):
         max_processing_time = current_model.min_processing_time_s  # for demonstration purposes
         # --
 
-        # for simplicity we just take a random distribution
+        # for simplicity, we just take a random distribution
         # that is not representative for the production system's behavior
         random_processing_time = between(min_processing_time, max_processing_time)
 
@@ -387,7 +388,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                 is_successful = simulate_minimal_workload()
             else:
                 # is_successful = simulate_workload_random(cmd_name)
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
                 is_successful = simulate_workload_using_predictive_model(cmd_name)
+                loop.run_until_complete(is_successful)
+                loop.close()
             stopwatch.stop()
             logger.info("Request execution time: %s", stopwatch)
 
@@ -410,8 +415,6 @@ def main():
 
     port = 1337
     logger.info('Listening on localhost:%s' % port)
-    # server = HTTPServer(('', port), RequestHandler)
-    # server = ThreadingHTTPServer(('', port), RequestHandler)
     server = ThreadingHTTPServerWithBigQueue(('', port), RequestHandler)
     server.serve_forever()
 
