@@ -10,7 +10,7 @@ We modelled the link parameters based on the infrastructure of the SUE;
 * we implemented additional ancillary Python scripts to help analyse the log files.
 
 # Instructions to launch an experiment
-## Quick start (tested with Python 3.9 on Ubuntu 20.04 LTS)
+## Quick start (tested with Python 3.8.10 on Ubuntu 20.04 LTS)
 * Clone the repository
 * run `cd <the_directory_you_cloned_the_repository>`
 * create a python virtual environment in a directory called `venv`, e.g., `python3 -m venv venv` 
