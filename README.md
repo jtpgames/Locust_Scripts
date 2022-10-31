@@ -1,8 +1,8 @@
 RAST Simulator and Load Tester Components (MASCOTS 2022)
 ---
-**Last change from: 25.06.2022**
+**Last change from: 31.10.2022**
 
-In our latest publication (currently in review), we explain our extension of this project.
+In our latest publication at MASCOTS 2022 (TODO: link), we explain our extension of this project.
 * We provide a regression model learned from log files using our RAST approach;
 * we improved the Simulator so that it uses the regression model to simulate processing times of the System-Under-Evaluation (SUE);
 * we built a [mininet](http://mininet.org/) topology to ease the process of reproducibly launching experiments. 
@@ -10,10 +10,12 @@ We modelled the link parameters based on the infrastructure of the SUE;
 * we implemented additional ancillary Python scripts to help analyse the log files.
 
 # Instructions to launch an experiment
-## Quick start
+## Quick start (tested with Python 3.9 on Ubuntu 20.04 LTS)
 * Clone the repository
 * run `cd <the_directory_you_cloned_the_repository>`
-* run `pip3 install -r requirements.txt`
+* create a python virtual environment in a directory called `venv`, e.g., `python3 -m venv venv` 
+* activate virtual environment with `source activate_venv.sh` 
+* run `pip install -r requirements.txt`
 * install mininet using the command `sudo apt-get install mininet` (in case you need additional help, consult the [mininet documentation](http://mininet.org/download/)
 * run `cd mininet`
 * execute `./start_mininet.sh`
