@@ -27,6 +27,7 @@ from dataclasses import dataclass
 import logging
 
 MASCOTS2020 = False
+MASCOTS2022 = False
 
 fh = logging.FileHandler('ARS_simulation_{:%Y-%m-%d}.log'.format(datetime.now()))
 fh.setLevel(logging.WARN)
@@ -241,8 +242,12 @@ pr_lock = threading.Lock()
 number_of_parallel_requests_pending = 0
 startedCommands = {}
 
-predictive_model = load("Models/gs_model_prod_workload.joblib")
-known_request_types = load("Models/gs_requests_mapping_prod_workload.joblib")
+if MASCOTS2022:
+    predictive_model = load("Models/gs_model_prod_workload_mascots2022.joblib")
+    known_request_types = load("Models/gs_requests_mapping_prod_workload_mascots2022.joblib")
+else:
+    predictive_model = load("Models/gs_model_prod_workload.joblib")
+    known_request_types = load("Models/gs_requests_mapping_prod_workload.joblib")
 
 
 async def simulate_workload_using_predictive_model(function: str, use_await=False):
