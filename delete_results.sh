@@ -1,3 +1,4 @@
+rm executor.log -fv
 rm loadtest_*.csv -fv
 rm locust_log*.log -fv
 rm worker_log_*.log -fv
