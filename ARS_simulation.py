@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+
 # Simulates an ARS with workloads measured in a productive environment.
-# Set the constant MASCOTS2020 to True, in order to produce similar results as in our paper.
-# Leave the file as it is to reproduce our work published at MASCOTS2022
+# Set the constants MASCOTS2020 or MASCOTS2022 to True, to reproduce the results in our papers.
+#
 # HTTPServer based on https://gist.github.com/huyng/814831 Written by Nathan Hamiel (2010)
+
 import asyncio
 import os
 import threading
@@ -11,6 +13,8 @@ import argparse
 from random import random, seed
 from uuid import uuid1
 
+import numpy
+import pandas
 import sys
 import uvicorn
 from time import sleep
@@ -246,8 +250,8 @@ if MASCOTS2022:
     predictive_model = load("Models/gs_model_prod_workload_mascots2022.joblib")
     known_request_types = load("Models/gs_requests_mapping_prod_workload_mascots2022.joblib")
 else:
-    predictive_model = load("Models/gs_model_prod_workload.joblib")
-    known_request_types = load("Models/gs_requests_mapping_prod_workload.joblib")
+    predictive_model = load("Models/gs_model_LR_03-11-2022.joblib")
+    known_request_types = load("Models/gs_requests_mapping_03-11-2022.joblib")
 
 
 async def simulate_workload_using_predictive_model(function: str, use_await=False):
@@ -332,13 +336,17 @@ def predict_sleep_time(model, tid, command):
     #            1]) \
     #     .reshape(1, -1)
 
-    X = array([startedCommands[tid]["parallelCommandsStart"],
-               startedCommands[tid]["parallelCommandsFinished"],
-               request_type_as_int]) \
-        .reshape(1, -1)
+    X = numpy.reshape(
+        [startedCommands[tid]["parallelCommandsStart"],
+         startedCommands[tid]["parallelCommandsFinished"],
+         request_type_as_int],
+        (1, -1)
+    )
+
+    Xframe = pandas.DataFrame(X, columns=['PR 1', 'PR 3', 'Request Type'])
 
     # print(f"X: {X}")
-    y = model.predict(X)
+    y = model.predict(Xframe)
     # print(f"y: {y}")
 
     y_value = y[0]
