@@ -75,7 +75,7 @@ class PredictiveModel:
 
 
 class ThreadingHTTPServerWithBigQueue(ThreadingHTTPServer):
-    request_queue_size = 128
+    request_queue_size = 1024
 
 
 # -- Fault Management Model --
@@ -277,29 +277,32 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
         "parallelCommandsFinished": 0
     }
 
-    logger.debug(startedCommands)
+    # logger.debug(startedCommands)
+
+    total_sleep_time = 0
 
     sleep_time_to_use = predict_sleep_time(predictive_model, tid, function)
-    logger.debug(f"{function}: Waiting for {sleep_time_to_use}")
+    logger.debug(f"--> {function}: Waiting for {sleep_time_to_use}")
     if use_await:
         await asyncio.sleep(sleep_time_to_use)
     else:
         sleep(sleep_time_to_use)
+    total_sleep_time += sleep_time_to_use
 
-    sleep_time_last_time = sleep_time_to_use
-    while True:
+    # while True:
+    for i in range(1):
         sleep_time_test = predict_sleep_time(predictive_model, tid, function)
-        if sleep_time_test <= sleep_time_last_time:
+        if sleep_time_test <= total_sleep_time:
             break
         else:
-            sleep_time_to_use = sleep_time_test - sleep_time_last_time
+            sleep_time_to_use = sleep_time_test - total_sleep_time
 
-        sleep_time_last_time = sleep_time_test
-        logger.debug(f"{function}: Waiting for {sleep_time_to_use}")
+        logger.debug(f"---> {function}: Waiting for {sleep_time_to_use}")
         if use_await:
             await asyncio.sleep(sleep_time_to_use)
         else:
             sleep(sleep_time_to_use)
+        total_sleep_time += sleep_time_to_use
 
     with pr_lock:
         number_of_parallel_requests_pending -= 1
@@ -310,7 +313,8 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
         for cmd in startedCommands.values():
             cmd["parallelCommandsFinished"] = cmd["parallelCommandsFinished"] + 1
 
-    logger.debug(startedCommands)
+    # logger.debug(startedCommands)
+    logger.info(f"<-- ID:{tid} Total Predicted Processing Time: {total_sleep_time}")
 
     return True
 
@@ -345,9 +349,9 @@ def predict_sleep_time(model, tid, command):
 
     Xframe = pandas.DataFrame(X, columns=['PR 1', 'PR 3', 'Request Type'])
 
-    # print(f"X: {X}")
+    logger.debug(f"-> X: {X} -")
     y = model.predict(Xframe)
-    # print(f"y: {y}")
+    logger.debug(f"<- y: {y} -")
 
     y_value = y[0]
     y_value = max(0, y_value)
@@ -377,17 +381,17 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         request_path = self.path
 
-        logger.info("----- Request Start ----->")
-
         cmd_name = request_path.replace("/", "")
 
-        logger.info("CMD-START: %s", cmd_name)
-
         request_headers = self.headers
-        content_length = request_headers.get('Content-Length')
-        length = int(content_length) if content_length else 0
+        # content_length = request_headers.get('Content-Length')
+        # length = int(content_length) if content_length else 0
 
-        logger.debug("Content Length: %s", length)
+        request_id = request_headers.get('Request-Id')
+
+        logger.info("-----> [%s] CMD-START: %s -----", request_id, cmd_name)
+
+        # logger.debug("Content Length: %s", length)
         # logger.debug("Request headers: %s", request_headers)
         # logger.debug("Request payload: %s", self.rfile.read(length))
 
@@ -407,10 +411,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                 loop.run_until_complete(is_successful)
                 loop.close()
             stopwatch.stop()
-            logger.info("Request execution time: %s", stopwatch)
+            logger.info("[%s] Request execution time: %s", request_id, stopwatch)
 
-        logger.info("CMD-ENDE: %s", cmd_name)
-        logger.info("<----- Request End -----")
+        logger.info("<----- [%s] CMD-ENDE: %s -----", request_id, cmd_name)
 
         self.send_response(200 if is_successful else 500)
         self.end_headers()
@@ -483,6 +486,6 @@ if __name__ == "__main__":
     seed(42)
 
     # use one worker for now, because the program is not using shared memory
-    # uvicorn.run("ARS_simulation:app", host="127.0.0.1", port=1337, log_level="warning", workers=1, backlog = 128)
+    # uvicorn.run("ARS_simulation:app", host="0.0.0.0", port=1337, log_level="warning", workers=1, backlog = 1024)
 
     main()
