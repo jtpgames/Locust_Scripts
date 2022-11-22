@@ -55,13 +55,24 @@ class RealWorkloadShape(LoadTestShape):
     def __init__(self):
         super().__init__()
 
+        self._max_requests_per_hour_within_the_workload = 0
+        self._max_requests_per_second_within_the_workload = 0
+
         self._workload_pattern = dict()
 
         self._number_of_days_recorded = 0
-        for file_path in sorted(glob("GS Production Workload/Requests_per_time_unit_*.log")):
+        for file_path in sorted(glob("GS Production Workload/All_requests_per_*.log")):
             print(file_path)
             with open(file_path) as logfile:
                 for line in logfile:
+                    requests_per_second = re.search('(?<=RPS:\\s)\\d*', line)
+                    if requests_per_second is not None:
+                        requests_per_second = int(requests_per_second.group())
+                        self._max_requests_per_second_within_the_workload = max(
+                            self._max_requests_per_second_within_the_workload,
+                            requests_per_second
+                        )
+
                     requests_per_hour = re.search('(?<=RPH:\\s)\\d*', line)
                     if requests_per_hour is None:
                         continue
@@ -73,56 +84,17 @@ class RealWorkloadShape(LoadTestShape):
                     self._workload_pattern[self._number_of_days_recorded * 24 + time_stamp.hour] = requests_per_hour
             self._number_of_days_recorded += 1
 
+        self._max_requests_per_hour_within_the_workload = max(self._workload_pattern.values())
+        print(f"Requests per hour to send: {self._max_requests_per_hour_within_the_workload}")
+        print(f"Requests per sec to send: {self._max_requests_per_second_within_the_workload}")
+
     def tick(self):
-        run_time = self.get_run_time()
-
-        run_time_in_hours = int(run_time / 3600)
-        run_time_in_days = int(run_time_in_hours / 24)
-
-        if run_time_in_days >= self._number_of_days_recorded:
-            return None
-
-        avg_requests_per_second = int(self._workload_pattern[run_time_in_hours] / 3600)
-
-        # Because every user sends one request per second, we need avg_requests_per_second users
+        avg_requests_per_second = int(self._max_requests_per_second_within_the_workload)
         return avg_requests_per_second, avg_requests_per_second
 
 
-# class StagesShape(LoadTestShape):
-#     """
-#     A simple load test shape class that has different user and spawn_rate at
-#     different stages.
-#     Keyword arguments:
-#         stages -- A list of dicts, each representing a stage with the following keys:
-#             duration -- When this many seconds pass the test is advanced to the next stage
-#             users -- Total user count
-#             spawn_rate -- Number of users to start/stop per second
-#             stop -- A boolean that can stop that test at a specific stage
-#     """
-#
-#     stages = [
-#         {"duration": timedelta(seconds=60).total_seconds(), "users": 1, "spawn_rate": 1},
-#         {"duration": timedelta(seconds=120).total_seconds(), "users": 10, "spawn_rate": 1},
-#         {"duration": timedelta(seconds=240).total_seconds(), "users": 50, "spawn_rate": 10},
-#         {"duration": timedelta(seconds=480).total_seconds(), "users": 20, "spawn_rate": 1},
-#     ]
-#
-#     def tick(self):
-#         run_time = self.get_run_time()
-#
-#         for stage in self.stages:
-#             if run_time < stage["duration"]:
-#                 tick_data = (stage["users"], stage["spawn_rate"])
-#                 return tick_data
-#
-#         self.reset_time()
-#         last_stage = self.stages[len(self.stages) - 1]
-#         return last_stage["users"], last_stage["spawn_rate"]
-
-
-# class TeaStore(HttpUser):
 class TeaStore(FastHttpUser):
-    # wait_time = between(8, 8)
+    # wait_time = between(1, 90)
     wait_time = constant(1)
 
     _global_user_count = 0
@@ -209,7 +181,7 @@ class TeaStore(FastHttpUser):
         random_idx = random.randrange(0, len(self._products_in_cart))
         random_product_id = self._products_in_cart.pop(random_idx)
 
-        endpoint = self._prefix + f"cartAction?removeProduct_{random_product_id}"
+        endpoint = self._prefix + f"cartAction?removeProduct_{random_product_id}=&productid={random_product_id}"
 
         self.client.post(endpoint, name="/remove_from_cart")
 
