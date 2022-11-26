@@ -1,12 +1,35 @@
+#!/usr/bin/env python
+
+# This file tests the TeaStore, see https://github.com/DescartesResearch/TeaStore.
+# It is a modified version of
+# https://github.com/DescartesResearch/TeaStore/blob/master/examples/locust/locustfile.py.
+
 import logging
 from datetime import timedelta
 from random import randint, choice
 
 import csv
-from locust import HttpUser, task, LoadTestShape, constant
+from locust import HttpUser, task, LoadTestShape, constant, events
+from locust.env import Environment
+
+import requests
 
 # logging
 logging.getLogger().setLevel(logging.INFO)
+
+
+@events.test_start.add_listener
+def on_test_start(environment: Environment, **kwargs):
+    logs_endpoint = environment.host.replace(":8080", ":8081/logs/reset")
+
+    logging.info("Resetting teastore logs")
+    response = requests.get(logs_endpoint)
+    logging.info(response.status_code)
+
+
+@events.request_success.add_listener
+def my_success_handler(request_type, name, response_time, response_length, **kw):
+    logging.info("Response time %s ms", response_time)
 
 
 class StagesShape(LoadTestShape):
@@ -50,14 +73,13 @@ class StagesShape(LoadTestShape):
 class UserBehavior(HttpUser):
     wait_time = constant(1)
 
-    _user = "user"
     _global_user_count = 0
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._prefix = self.host + "/tools.descartes.teastore.webui"
 
-        self._user += str(UserBehavior._global_user_count)
+        self._user = "user" + str(UserBehavior._global_user_count)
         UserBehavior._global_user_count += 1
 
         print(self._user)
@@ -99,8 +121,7 @@ class UserBehavior(HttpUser):
 
     def login(self) -> None:
         """
-        User login with random userid between 1 and 90.
-        JTO: Changed so the userid is fixed for one instance of UserBehavior.
+        User login with a distinct userid chosen in the constructor.
         :return: categories
         """
         # load login page

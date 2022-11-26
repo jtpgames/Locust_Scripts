@@ -99,19 +99,18 @@ class TeaStore(FastHttpUser):
 
     _global_user_count = 0
 
-    _user = "user"
     _pw = "password"
     _productviewcount = 30
-
-    _known_product_ids = []
-    _dup = {}
-    _products_in_cart = []
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._prefix = self.host + "/tools.descartes.teastore.webui/"
 
-        self._user += str(TeaStore._global_user_count)
+        self._known_product_ids = []
+        self._dup = {}
+        self._products_in_cart = []
+
+        self._user = "user" + str(TeaStore._global_user_count)
         TeaStore._global_user_count += 1
 
         print(self._user)
