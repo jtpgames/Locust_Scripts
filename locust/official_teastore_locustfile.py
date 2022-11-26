@@ -17,6 +17,8 @@ import requests
 # logging
 logging.getLogger().setLevel(logging.INFO)
 
+locust_environment: Environment = None
+
 
 @events.test_start.add_listener
 def on_test_start(environment: Environment, **kwargs):
@@ -25,6 +27,9 @@ def on_test_start(environment: Environment, **kwargs):
     logging.info("Resetting teastore logs")
     response = requests.get(logs_endpoint)
     logging.info(response.status_code)
+
+    global locust_environment
+    locust_environment = environment
 
 
 @events.request_success.add_listener
@@ -48,7 +53,9 @@ class StagesShape(LoadTestShape):
     def __init__(self):
         super().__init__()
 
-        with open("locust/increasingLowIntensity.csv") as intensityFile:
+        #with open("locust/increasingLowIntensity.csv") as intensityFile:
+        #with open("locust/increasingMedIntensity.csv") as intensityFile:
+        with open("locust/increasingHighIntensity.csv") as intensityFile:
             reader = csv.DictReader(intensityFile, ['time', 'rps'])
             for row in reader:
                 time = float(row['time'])
@@ -67,6 +74,7 @@ class StagesShape(LoadTestShape):
                 tick_data = (stage["users"], stage["spawn_rate"])
                 return tick_data
 
+        locust_environment.runner.quit()
         return None
 
 
