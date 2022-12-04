@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from datetime import datetime
@@ -5,11 +6,14 @@ from logging.handlers import TimedRotatingFileHandler
 from threading import current_thread
 from uuid import uuid4
 
-from time import sleep
+import numpy
+import pandas
 
 import psutil
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Response
 from joblib import load
+from uvicorn import run
+import gunicorn.app.base
 
 from stopwatch import Stopwatch
 
@@ -18,11 +22,22 @@ app = FastAPI(
     title="TeaStore Simulation"
 )
 
-workload_to_use = "gs"
-predictive_model = load(f"Models/teastore_model_{workload_to_use}_workload.joblib")
-known_request_types = load(f"Models/teastore_requests_{workload_to_use}_workload.joblib")
+predictive_model = None
+known_request_types = []
 
-print(known_request_types)
+
+@app.on_event("startup")
+async def startup_event():
+    # workload_to_use = "gs"
+    # predictive_model = load(f"Models/teastore_model_{workload_to_use}_workload.joblib")
+    # known_request_types = load(f"Models/teastore_requests_{workload_to_use}_workload.joblib")
+    global predictive_model
+    global known_request_types
+
+    predictive_model = load("Models/teastore_model_LR_02-12-2022.joblib")
+    known_request_types = load("Models/teastore_requests_mapping_02-12-2022.joblib")
+
+    logger.info(known_request_types)
 
 number_of_parallel_requests_pending = 0
 startedCommands = {}
@@ -30,7 +45,7 @@ startedCommands = {}
 
 # Because not everyone is using Python 3.9+ we use this one.
 # Source: https://stackoverflow.com/a/16891418
-def remove_prefix(text, prefix):
+def remove_prefix(text: str, prefix: str) -> str:
     if text.startswith(prefix):
         return text[len(prefix):]
     return text
@@ -45,18 +60,27 @@ fh.setLevel(logging.DEBUG)
 fh.suffix = "_%Y-%m-%d"
 fh.namer = namer
 
-logging.basicConfig(format="%(message)s",
+logging.basicConfig(format="[%(thread)d] %(asctime)s [%(levelname)s] %(message)s",
                     level=os.environ.get("LOGLEVEL", "DEBUG"),
                     handlers=[fh])
 
+logger = logging.getLogger('Audit')
+
+
+def log_info(tid, msg):
+    logging.info(f"UID: {str(tid):13}"
+                 f" {msg}")
+
 
 def log_command(tid, cmd, startOrEndOfCmd):
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-
-    logging.info(f"[{str(tid):13}]"
-                 f" {timestamp}"
-                 f" {startOrEndOfCmd:9}"
-                 f" {cmd}")
+    log_info(
+        tid,
+        f" {startOrEndOfCmd:9}"
+        f" {cmd}"
+    )
+    # logging.info(f"UID: {str(tid):13}"
+    #              f" {startOrEndOfCmd:9}"
+    #              f" {cmd}")
 
 
 def log_start_command(tid, cmd):
@@ -68,23 +92,21 @@ def log_end_command(tid, cmd):
 
 
 def predict_sleep_time(model, tid, command):
-    from numpy import array
-
     request_type_as_int = known_request_types[command]
 
-    X = array([startedCommands[tid]["parallelCommandsStart"],
-               startedCommands[tid]["parallelCommandsFinished"],
-               request_type_as_int,
-               psutil.cpu_percent()]) \
-        .reshape(1, -1)
+    X = numpy.reshape(
+        [startedCommands[tid]["parallelCommandsStart"],
+         startedCommands[tid]["parallelCommandsFinished"],
+         request_type_as_int],
+        (1, -1)
+    )
 
-    # print(f"X: {X}")
+    Xframe = pandas.DataFrame(X, columns=['PR 1', 'PR 3', 'Request Type'])
 
-    y = model.predict(X)
+    logger.debug(f"-> X: {X} -")
+    y = model.predict(Xframe)
+    logger.debug(f"<- y: {y} -")
 
-    print(f"y: {y}")
-
-    # y_value = y[0, 0]
     y_value = y[0]
     y_value = max(0, y_value)
 
@@ -96,22 +118,24 @@ async def simulate_processing_time(request: Request, call_next):
     found_command = request.scope["X-CMD"]
 
     tid = request.scope['X-UID']
+
+    total_sleep_time = 0
+
     sleep_time_to_use = predict_sleep_time(predictive_model, tid, found_command)
+    logger.debug(f"--> {found_command}: Waiting for {sleep_time_to_use}")
+    await asyncio.sleep(sleep_time_to_use)
+    total_sleep_time += sleep_time_to_use
 
-    print("Waiting for {}".format(sleep_time_to_use))
-    sleep(sleep_time_to_use)
-
-    sleep_time_last_time = sleep_time_to_use
-    while True:
+    for i in range(1):
         sleep_time_test = predict_sleep_time(predictive_model, tid, found_command)
-        if sleep_time_test <= sleep_time_last_time:
+        if sleep_time_test <= total_sleep_time:
             break
         else:
-            sleep_time_to_use = sleep_time_test - sleep_time_last_time
+            sleep_time_to_use = sleep_time_test - total_sleep_time
 
-        sleep_time_last_time = sleep_time_test
-        print("Waiting for {}".format(sleep_time_to_use))
-        sleep(sleep_time_to_use)
+        logger.debug(f"---> {found_command}: Waiting for {sleep_time_to_use}")
+        await asyncio.sleep(sleep_time_to_use)
+        total_sleep_time += sleep_time_to_use
 
     response = await call_next(request)
     return response
@@ -155,18 +179,28 @@ async def add_process_time_header(request: Request, call_next):
     stopwatch = Stopwatch()
     response = await call_next(request)
     stopwatch.stop()
-    process_time = stopwatch.duration
-    logging.info(f"Processing Time: {stopwatch}")
-    response.headers["X-Process-Time"] = str(process_time)
+
+    tid = request.scope['X-UID']
+    log_info(tid, f"Processing Time: {stopwatch}")
+    response.headers["X-Process-Time"] = str(stopwatch)
     return response
 
 
 @app.middleware("http")
 async def extract_command(request: Request, call_next):
-    # command = request.url.path.removeprefix(prefix)
-    command = remove_prefix(request.url.path, prefix)
+    logger.debug(request.url.path)
 
-    print(f"Cmd: {command}")
+    if request.url.path == "/":
+        return Response(content="Empty response", media_type="text/plain")
+
+    # command = request.url.path.removeprefix(prefix)
+    if request.url.path != prefix:
+        command = remove_prefix(request.url.path, prefix)
+    else:
+        command = "index"
+
+    tid = request.scope['X-UID']
+    log_info(tid, f"Cmd: {command}")
 
     found_command = None
 
@@ -178,7 +212,7 @@ async def extract_command(request: Request, call_next):
     if found_command is None:
         raise HTTPException(status_code=404, detail="Command not found")
 
-    print(f"-> {found_command}")
+    logger.info(f"-> {found_command}")
 
     request.scope["X-CMD"] = found_command
     response = await call_next(request)
@@ -190,6 +224,9 @@ async def extract_command(request: Request, call_next):
 async def add_unique_id(request: Request, call_next):
     unique_command_id = hash(uuid4())
 
+    # logger.debug(request.headers)
+    # logger.debug(request.cookies)
+
     request.scope["X-UID"] = str(unique_command_id)
     response = await call_next(request)
 
@@ -198,34 +235,46 @@ async def add_unique_id(request: Request, call_next):
 prefix = "/tools.descartes.teastore.webui/"
 
 
+@app.get(prefix)
+async def index():
+    logger.info(f"GET index")
+    return {"message": "Success"}
+
+
+@app.get(f"{prefix}login")
+async def login():
+    logger.info("GET login")
+    return {"message": "Success"}
+
+
 @app.post(f"{prefix}loginAction")
-def login(username: str = "", password: str = "", logout: str = ""):
-    print(f"[{current_thread().ident}] POST login {username} {password} {logout}")
+async def login_action(username: str = "", password: str = "", logout: str = ""):
+    logger.info(f"POST login {username} {password} {logout}")
     return {"message": "Success"}
 
 
 @app.get(f"{prefix}profile")
-def get_profile():
-    print(f"[{current_thread().ident}] GET profile")
+async def get_profile():
+    logger.info(f"GET profile")
     return {"message": "SimProfile"}
 
 
 @app.get(f"{prefix}cart")
-def get_cart():
-    print(f"[{current_thread().ident}] GET cart")
+async def get_cart():
+    logger.info(f"GET cart")
     return {"message": "Empty cart"}
 
 
 @app.post(f"{prefix}cartAction")
-def post_cart(action: str):
-    print(f"[{current_thread().ident}] POST cartAction with {action}")
+async def post_cart(action: str = "", productid: int = 0, confirm: str = ""):
+    logger.info(f"POST cartAction with {action}, {productid}, {confirm}")
     return {"message": "Ok"}
 
 
 @app.get(f"{prefix}category")
-def get_category(page: int, category: int, number: int):
-    print(
-        f"[{current_thread().ident}] GET category: page:{page}, "
+async def get_category(page: int, category: int, number: int = 0):
+    logger.info(
+        f"GET category: page:{page}, "
         f"category:{category}, "
         f"number: {number}"
     )
@@ -242,8 +291,51 @@ def get_category(page: int, category: int, number: int):
 
 
 @app.get(f"{prefix}product")
-def get_product(id: int):
-    print(
-        f"[{current_thread().ident}] GET product: id:{id}"
+async def get_product(id: int):
+    logger.info(
+        f"GET product: id:{id}"
     )
     return {"name": "my product"}
+
+
+class StandaloneApplication(gunicorn.app.base.BaseApplication):
+    def __init__(self, app, options=None):
+        self.options = options or {}
+        self.application = app
+        super().__init__()
+
+    def init(self, parser, opts, args):
+        pass
+
+    def load_config(self):
+        config = {key: value for key, value in self.options.items()
+                  if key in self.cfg.settings and value is not None}
+        for key, value in config.items():
+            self.cfg.set(key.lower(), value)
+
+    def load(self):
+        return self.application
+
+
+if __name__ == "__main__":
+    # uvicorn.run(
+    #     "teastore_simulation:app",
+    #     host="0.0.0.0",
+    #     port=1337,
+    #     # log_level="warning",
+    #     backlog=10000,
+    #     workers=1,
+    #     reload=True,
+    # )
+
+    options = {
+        'bind': '%s:%s' % ('0.0.0.0', '1337'),
+        'workers': 1,
+        'worker_class': 'uvicorn.workers.UvicornWorker',
+        'worker_connections': 2048,
+        'backlog': 2048,
+        'reload': True,
+        'loglevel': "debug",
+        'accesslog': "-"
+    }
+    StandaloneApplication(app, options).run()
