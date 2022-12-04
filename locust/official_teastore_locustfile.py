@@ -37,6 +37,11 @@ def my_success_handler(request_type, name, response_time, response_length, **kw)
     logging.info("Response time %s ms", response_time)
 
 
+@events.request_failure.add_listener
+def my_failure_handler(request_type, name, response_time, response_length, exception):
+    logging.warning(f"{request_type} {name} failed", response_time)
+
+
 class StagesShape(LoadTestShape):
     """
     A simple load test shape class that has different user and spawn_rate at
@@ -68,6 +73,7 @@ class StagesShape(LoadTestShape):
 
     def tick(self):
         run_time = self.get_run_time()
+        run_time *= 2
 
         for stage in self.stages:
             if run_time < stage["duration"]:
@@ -90,7 +96,7 @@ class UserBehavior(HttpUser):
         self._user = "user" + str(UserBehavior._global_user_count)
         UserBehavior._global_user_count += 1
 
-        print(self._user)
+        # print(self._user)
 
     @task
     def load(self) -> None:
@@ -98,22 +104,26 @@ class UserBehavior(HttpUser):
         Simulates user behaviour.
         :return: None
         """
-        logging.info("Starting user.")
-        self.visit_home()
-        self.wait()
-        self.login()
-        self.wait()
-        self.browse()
-        self.wait()
-        # 50/50 chance to buy
-        choice_buy = choice([True, False])
-        if choice_buy:
-            self.buy()
+
+        try:
+            logging.info(f"Starting user {self._user}")
+            self.visit_home()
             self.wait()
-        self.visit_profile()
-        self.wait()
-        self.logout()
-        logging.info("Completed user.")
+            self.login()
+            self.wait()
+            self.browse()
+            self.wait()
+            # 50/50 chance to buy
+            choice_buy = choice([True, False])
+            if choice_buy:
+                self.buy()
+                self.wait()
+            self.visit_profile()
+            self.wait()
+            self.logout()
+            logging.info("Completed user.")
+        except requests.exceptions.ConnectionError as e:
+            logging.error(f"{e.request.url, str(e)}")
 
     def visit_home(self) -> None:
         """
@@ -139,7 +149,7 @@ class UserBehavior(HttpUser):
         else:
             logging.error(f"Could not load login page: {res.status_code}")
 
-        # login random user
+        # login user
         user = self._user
         login_request = self.client.post(self._prefix + "/loginAction", params={"username": user, "password": "password"})
         if login_request.ok:
