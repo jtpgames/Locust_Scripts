@@ -1,15 +1,12 @@
 import asyncio
 import logging
 import os
-from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
-from threading import current_thread
 from uuid import uuid4
 
 import numpy
 import pandas
 
-import psutil
 from fastapi import FastAPI, Request, HTTPException, Response
 from joblib import load
 from uvicorn import run
@@ -68,7 +65,7 @@ logger = logging.getLogger('Audit')
 
 
 def log_info(tid, msg):
-    logging.info(f"UID: {str(tid):13}"
+    logging.info(f"UID: {str(tid):13},"
                  f" {msg}")
 
 
@@ -181,7 +178,8 @@ async def add_process_time_header(request: Request, call_next):
     stopwatch.stop()
 
     tid = request.scope['X-UID']
-    log_info(tid, f"Processing Time: {stopwatch}")
+    command = request.scope['X-CMD']
+    log_info(tid, f"CMD: {command}, Processing Time: {stopwatch}")
     response.headers["X-Process-Time"] = str(stopwatch)
     return response
 
@@ -318,24 +316,25 @@ class StandaloneApplication(gunicorn.app.base.BaseApplication):
 
 
 if __name__ == "__main__":
-    # uvicorn.run(
-    #     "teastore_simulation:app",
-    #     host="0.0.0.0",
-    #     port=1337,
-    #     # log_level="warning",
-    #     backlog=10000,
-    #     workers=1,
-    #     reload=True,
-    # )
+    run(
+        "teastore_simulation:app",
+        host="0.0.0.0",
+        port=1337,
+        log_level="info",
+        access_log=False,
+        backlog=2048,
+        workers=1,
+        # reload=True,
+    )
 
-    options = {
-        'bind': '%s:%s' % ('0.0.0.0', '1337'),
-        'workers': 1,
-        'worker_class': 'uvicorn.workers.UvicornWorker',
-        'worker_connections': 2048,
-        'backlog': 2048,
-        'reload': True,
-        'loglevel': "debug",
-        'accesslog': "-"
-    }
-    StandaloneApplication(app, options).run()
+    # options = {
+    #     'bind': '%s:%s' % ('0.0.0.0', '1337'),
+    #     'workers': 1,
+    #     'worker_class': 'uvicorn.workers.UvicornWorker',
+    #     'worker_connections': 2048,
+    #     'backlog': 2048,
+    #     'reload': True,
+    #     'loglevel': "debug",
+    #     'accesslog': "-"
+    # }
+    # StandaloneApplication(app, options).run()
