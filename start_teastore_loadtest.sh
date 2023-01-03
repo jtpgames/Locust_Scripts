@@ -1,1 +1,1 @@
-python3 executor.py locust/official_teastore_locustfile.py -u http://127.0.0.1:1337
+python3 executor.py locust/locust_teastore_adrian.py -u http://10.0.0.2:8080

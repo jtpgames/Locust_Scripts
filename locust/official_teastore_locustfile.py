@@ -23,6 +23,7 @@ locust_environment: Environment = None
 @events.test_start.add_listener
 def on_test_start(environment: Environment, **kwargs):
     logs_endpoint = environment.host.replace(":8080", ":8081/logs/reset")
+    logging.info(f"{kwargs}")
 
     logging.info("Resetting teastore logs")
     response = requests.get(logs_endpoint)
@@ -58,9 +59,9 @@ class StagesShape(LoadTestShape):
     def __init__(self):
         super().__init__()
 
-        #with open("locust/increasingLowIntensity.csv") as intensityFile:
+        with open("locust/increasingLowIntensity.csv") as intensityFile:
         #with open("locust/increasingMedIntensity.csv") as intensityFile:
-        with open("locust/increasingHighIntensity.csv") as intensityFile:
+        #with open("locust/increasingHighIntensity.csv") as intensityFile:
             reader = csv.DictReader(intensityFile, ['time', 'rps'])
             for row in reader:
                 time = float(row['time'])
