@@ -1,4 +1,4 @@
-#!/home/Locust_Scripts/venv/bin/python3
+#!/Users/adrianliermann/IdeaProjects/Locust_Scripts/venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

@@ -35,12 +35,12 @@ def on_test_start(environment: Environment, **kwargs):
 
 @events.request_success.add_listener
 def my_success_handler(request_type, name, response_time, response_length, **kw):
-    logging.info("Response time %s ms", response_time)
+    logging.info(f"[SUCCESS][{name}][{response_time}]")
 
 
 @events.request_failure.add_listener
 def my_failure_handler(request_type, name, response_time, response_length, exception):
-    logging.warning(f"{request_type} {name} failed", response_time)
+    logging.warning(f"[FAILURE][{name}][{response_time}]")
 
 
 class StagesShape(LoadTestShape):
@@ -59,7 +59,7 @@ class StagesShape(LoadTestShape):
     def __init__(self):
         super().__init__()
 
-        with open("locust/intensity_profiles/custom.csv") as intensityFile:
+        with open("locust/intensity_profiles/low.csv") as intensityFile:
             reader = csv.DictReader(intensityFile, ['duration', 'users', 'rps'])
             start_time = 0
             for row in reader:
