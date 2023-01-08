@@ -3,14 +3,25 @@
 # This file tests the TeaStore, see https://github.com/DescartesResearch/TeaStore.
 # It is a modified version of
 # https://github.com/DescartesResearch/TeaStore/blob/master/examples/locust/locustfile.py.
+# The modifications include:
+# * A loadtest shape that, depending on a workload defined in a .csv file,
+#   steadily increases the load and stops the test. This loadtest shape tries to
+#   mimic the loadtest of the
+#   teastore developers: https://github.com/DescartesResearch/TeaStore/tree/master/examples/httploadgenerator
+# * Reset the logfiles of teastore before starting the test.
+# * Additional logging for better insight and postprocessing of the measured response times.
+# * Consistent randomness by working with fixed seeds.
+# * Removed random user logins
+# * Minor refactoring and quality of life improvements like sending a unique request-id.
 
 import logging
 from datetime import timedelta
-from random import randint, choice, seed
+from random import seed, Random
 
 import csv
 from uuid import uuid1
 
+import gevent
 from locust import HttpUser, task, LoadTestShape, constant, events
 from locust.env import Environment
 
@@ -22,6 +33,11 @@ logging.getLogger().setLevel(logging.INFO)
 # noinspection PyTypeChecker
 locust_environment: Environment = None
 
+requests_counter = 0
+buy_counter = 0
+
+stop_executing_users = False
+
 
 @events.test_start.add_listener
 def on_test_start(environment: Environment, **kwargs):
@@ -31,8 +47,15 @@ def on_test_start(environment: Environment, **kwargs):
     response = requests.get(logs_endpoint)
     logging.info(response.status_code)
 
+    environment.stop_timeout = 10
+
     global locust_environment
     locust_environment = environment
+
+
+@events.test_stop.add_listener
+def on_test_stop(environment: Environment, **kwargs):
+    logging.info(f"Test stopped with {requests_counter} total requests send and {buy_counter} buy requests.")
 
 
 @events.request_success.add_listener
@@ -56,7 +79,10 @@ class StagesShape(LoadTestShape):
             spawn_rate -- Number of users to start/stop per second
     """
 
-    stages = []
+    _is_tick_disabled = False
+    _last_tick_data = None
+
+    _stages = []
 
     def __init__(self):
         super().__init__()
@@ -72,18 +98,26 @@ class StagesShape(LoadTestShape):
                 if rps == 0:
                     rps = 1
                 print((time, rps))
-                self.stages.append({"duration": time, "users": rps, "spawn_rate": rps})
+                self._stages.append({"duration": time, "users": rps, "spawn_rate": rps})
 
     def tick(self):
+        if self._is_tick_disabled:
+            return self._last_tick_data
+
         run_time = self.get_run_time()
 
-        for stage in self.stages:
+        for stage in self._stages:
             if run_time < stage["duration"]:
                 tick_data = (stage["users"], stage["spawn_rate"])
+                self._last_tick_data = tick_data
                 return tick_data
 
-        locust_environment.runner.quit()
-        return None
+        global stop_executing_users
+        stop_executing_users = True
+        logging.info("Stopping loadtest")
+
+        self._is_tick_disabled = True
+        return self._last_tick_data
 
 
 # initialize the random seed value to get reproducible random sequences
@@ -94,6 +128,7 @@ class UserBehavior(HttpUser):
     wait_time = constant(1)
 
     _global_user_count = 0
+    _currently_executing_users = 0
 
     def _get(self, url, params=None):
         request_id = uuid1().int
@@ -102,6 +137,8 @@ class UserBehavior(HttpUser):
             resp = self.client.get(url, headers={"Request-Id": str(request_id)})
         else:
             resp = self.client.get(url, params=params, headers={"Request-Id": str(request_id)})
+        global requests_counter
+        requests_counter += 1
         self.wait()
         return resp
 
@@ -109,6 +146,8 @@ class UserBehavior(HttpUser):
         request_id = uuid1().int
 
         resp = self.client.post(url, params=params, headers={"Request-Id": str(request_id)})
+        global requests_counter
+        requests_counter += 1
         self.wait()
         return resp
 
@@ -119,6 +158,10 @@ class UserBehavior(HttpUser):
         self._user_id = UserBehavior._global_user_count
         self._user = "user" + str(self._user_id)
         UserBehavior._global_user_count += 1
+        UserBehavior._currently_executing_users += 1
+
+        self._random = Random()
+        self._random.seed(self._user_id)
 
         # print(self._user)
 
@@ -135,14 +178,22 @@ class UserBehavior(HttpUser):
             self.login()
             self.browse()
             # 50/50 chance to buy
-            choice_buy = choice([True, False])
+            choice_buy = self._random.choice([True, False])
+            logging.info(f"{self._user}: choice: {choice_buy}")
             if choice_buy:
                 self.buy()
             self.visit_profile()
             self.logout()
-            logging.info("Completed user.")
+            logging.info(f"Completed user {self._user}.")
         except requests.exceptions.ConnectionError as e:
             logging.error(f"{e.request.url, str(e)}")
+
+        if stop_executing_users:
+            if UserBehavior._currently_executing_users == 1:
+                gevent.spawn_later(2, locust_environment.runner.quit)
+            self.stop()
+            UserBehavior._currently_executing_users -= 1
+            return
 
     def visit_home(self) -> None:
         """
@@ -183,18 +234,18 @@ class UserBehavior(HttpUser):
         :return: None
         """
         # execute browsing action randomly up to 5 times
-        for i in range(1, randint(2, 5)):
+        for i in range(1, self._random.randint(2, 5)):
             logging.info(f"{self._user}: {i}")
             # browses random category and page
-            category_id = randint(2, 6)
+            category_id = self._random.randint(2, 6)
             logging.info(f"{self._user}: {category_id}")
-            page = randint(1, 5)
+            page = self._random.randint(1, 5)
             logging.info(f"{self._user}: {page}")
             category_request = self._get(self._prefix + "/category", params={"page": page, "category": category_id})
             if category_request.ok:
                 logging.info(f"Visited category {category_id} on page 1")
                 # browses random product
-                product_id = randint(7, 506)
+                product_id = self._random.randint(7, 506)
                 product_request = self._get(self._prefix + "/product", params={"id": product_id})
                 if product_request.ok:
                     logging.info(f"Visited product with id {product_id}.")
@@ -232,6 +283,8 @@ class UserBehavior(HttpUser):
             logging.info(f"Bought products.")
         else:
             logging.error("Could not buy products.")
+        global buy_counter
+        buy_counter += 1
 
     def visit_profile(self) -> None:
         """

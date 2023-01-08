@@ -65,8 +65,9 @@ logger = logging.getLogger('Audit')
 
 
 def log_info(tid, msg):
-    logging.info(f"UID: {str(tid):13},"
-                 f" {msg}")
+    if logger.isEnabledFor(logging.INFO):
+        logging.info(f"UID: {str(tid):13},"
+                     f" {msg}")
 
 
 def log_command(tid, cmd, startOrEndOfCmd):
@@ -75,9 +76,6 @@ def log_command(tid, cmd, startOrEndOfCmd):
         f" {startOrEndOfCmd:9}"
         f" {cmd}"
     )
-    # logging.info(f"UID: {str(tid):13}"
-    #              f" {startOrEndOfCmd:9}"
-    #              f" {cmd}")
 
 
 def log_start_command(tid, cmd):
@@ -100,9 +98,9 @@ def predict_sleep_time(model, tid, command):
 
     Xframe = pandas.DataFrame(X, columns=['PR 1', 'PR 3', 'Request Type'])
 
-    logger.debug(f"-> X: {X} -")
+    logger.debug(f"-> UID: {tid}, X: {X} -")
     y = model.predict(Xframe)
-    logger.debug(f"<- y: {y} -")
+    logger.debug(f"<- UID: {tid}, y: {y} -")
 
     y_value = y[0]
     y_value = max(0, y_value)
@@ -119,7 +117,7 @@ async def simulate_processing_time(request: Request, call_next):
     total_sleep_time = 0
 
     sleep_time_to_use = predict_sleep_time(predictive_model, tid, found_command)
-    logger.debug(f"--> {found_command}: Waiting for {sleep_time_to_use}")
+    logger.debug(f"--> UID: {tid}, {found_command}: Waiting for {sleep_time_to_use}")
     await asyncio.sleep(sleep_time_to_use)
     total_sleep_time += sleep_time_to_use
 
@@ -130,7 +128,7 @@ async def simulate_processing_time(request: Request, call_next):
         else:
             sleep_time_to_use = sleep_time_test - total_sleep_time
 
-        logger.debug(f"---> {found_command}: Waiting for {sleep_time_to_use}")
+        logger.debug(f"---> UID: {tid}, {found_command}: Waiting for {sleep_time_to_use}")
         await asyncio.sleep(sleep_time_to_use)
         total_sleep_time += sleep_time_to_use
 
@@ -179,7 +177,8 @@ async def add_process_time_header(request: Request, call_next):
 
     tid = request.scope['X-UID']
     command = request.scope['X-CMD']
-    log_info(tid, f"CMD: {command}, Processing Time: {stopwatch}")
+    # log_info(tid, f"CMD: {command}, Processing Time: {stopwatch}")
+    logger.warning(f"UID: {tid}, CMD: {command}, Processing Time: {stopwatch}")
     response.headers["X-Process-Time"] = str(stopwatch)
     return response
 
