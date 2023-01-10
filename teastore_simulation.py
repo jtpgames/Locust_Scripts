@@ -114,23 +114,36 @@ async def simulate_processing_time(request: Request, call_next):
 
     tid = request.scope['X-UID']
 
+    stopwatch: Stopwatch = request.scope["X-SW"]
+
     total_sleep_time = 0
 
     sleep_time_to_use = predict_sleep_time(predictive_model, tid, found_command)
-    logger.debug(f"--> UID: {tid}, {found_command}: Waiting for {sleep_time_to_use}")
-    await asyncio.sleep(sleep_time_to_use)
-    total_sleep_time += sleep_time_to_use
+    logger.debug(f"--> UID: {tid}, {found_command}: Elapsed time: {stopwatch.duration}s")
+    sleep_time_to_use -= stopwatch.duration
+    sleep_time_to_use = max(0, sleep_time_to_use)
 
-    for i in range(1):
-        sleep_time_test = predict_sleep_time(predictive_model, tid, found_command)
-        if sleep_time_test <= total_sleep_time:
-            break
-        else:
-            sleep_time_to_use = sleep_time_test - total_sleep_time
-
-        logger.debug(f"---> UID: {tid}, {found_command}: Waiting for {sleep_time_to_use}")
+    if sleep_time_to_use > 0:
+        logger.debug(f"--> UID: {tid}, {found_command}: Waiting for {sleep_time_to_use}")
         await asyncio.sleep(sleep_time_to_use)
         total_sleep_time += sleep_time_to_use
+
+        for i in range(1):
+            sleep_time_test = predict_sleep_time(predictive_model, tid, found_command)
+            logger.debug(f"--> UID: {tid}, {found_command}: Elapsed time: {stopwatch.duration}s")
+            sleep_time_test -= stopwatch.duration
+            sleep_time_test = max(0, sleep_time_test)
+
+            if sleep_time_test <= total_sleep_time:
+                break
+            else:
+                sleep_time_to_use = sleep_time_test - total_sleep_time
+
+            logger.debug(f"---> UID: {tid}, {found_command}: Waiting for {sleep_time_to_use}")
+            await asyncio.sleep(sleep_time_to_use)
+            total_sleep_time += sleep_time_to_use
+    else:
+        logger.debug(f"--> UID: {tid}, {found_command}: Skip waiting")
 
     response = await call_next(request)
     return response
@@ -166,20 +179,6 @@ async def track_parallel_requests(request: Request, call_next):
 
     log_end_command(tid, found_command)
 
-    return response
-
-
-@app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    stopwatch = Stopwatch()
-    response = await call_next(request)
-    stopwatch.stop()
-
-    tid = request.scope['X-UID']
-    command = request.scope['X-CMD']
-    # log_info(tid, f"CMD: {command}, Processing Time: {stopwatch}")
-    logger.warning(f"UID: {tid}, CMD: {command}, Processing Time: {stopwatch}")
-    response.headers["X-Process-Time"] = str(stopwatch)
     return response
 
 
@@ -228,6 +227,25 @@ async def add_unique_id(request: Request, call_next):
     response = await call_next(request)
 
     return response
+
+
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    stopwatch = Stopwatch()
+    request.scope["X-SW"] = stopwatch
+    response = await call_next(request)
+    stopwatch.stop()
+
+    if 'X-CMD' not in request.scope:
+        return response
+
+    tid = request.scope['X-UID']
+    command = request.scope['X-CMD']
+    # log_info(tid, f"CMD: {command}, Processing Time: {stopwatch}")
+    logger.warning(f"UID: {tid}, CMD: {command}, Processing Time: {stopwatch}")
+    response.headers["X-Process-Time"] = str(stopwatch)
+    return response
+
 
 prefix = "/tools.descartes.teastore.webui/"
 
