@@ -23,11 +23,11 @@ locust_environment: Environment = None
 @events.test_start.add_listener
 def on_test_start(environment: Environment, **kwargs):
     logs_endpoint = environment.host.replace(":8080", ":8081/logs/reset")
-    logging.info(f"{kwargs}")
+    logging.debug(f"{kwargs}")
 
-    logging.info("Resetting teastore logs")
+    logging.debug("Resetting teastore logs")
     response = requests.get(logs_endpoint)
-    logging.info(response.status_code)
+    logging.debug(response.status_code)
 
     global locust_environment
     locust_environment = environment
@@ -35,7 +35,7 @@ def on_test_start(environment: Environment, **kwargs):
 
 @events.request_success.add_listener
 def my_success_handler(request_type, name, response_time, response_length, **kw):
-    logging.info(f"[SUCCESS][{name}][{response_time}]")
+    logging.warning(f"[SUCCESS][{name}][{response_time}]")
 
 
 @events.request_failure.add_listener
@@ -108,7 +108,7 @@ class UserBehavior(HttpUser):
         """
 
         try:
-            logging.info(f"Starting user {self._user}")
+            logging.debug(f"Starting user {self._user}")
             self.visit_home()
             self.wait()
             self.login()
@@ -116,14 +116,16 @@ class UserBehavior(HttpUser):
             self.browse()
             self.wait()
             # 50/50 chance to buy
-            choice_buy = choice([True, False])
-            if choice_buy:
-                self.buy()
-                self.wait()
+            # choice_buy = choice([True, False])
+            # if choice_buy:
+            #     self.buy()
+            #     self.wait()
+            self.buy()
+            self.wait()
             self.visit_profile()
             self.wait()
             self.logout()
-            logging.info("Completed user.")
+            logging.debug("Completed user.")
         except requests.exceptions.ConnectionError as e:
             logging.error(f"{e.request.url, str(e)}")
 
@@ -135,7 +137,7 @@ class UserBehavior(HttpUser):
         # load landing page
         res = self.client.get(self._prefix + '/')
         if res.ok:
-            logging.info("Loaded landing page.")
+            logging.debug("Loaded landing page.")
         else:
             logging.error(f"Could not load landing page: {res.status_code}")
 
@@ -147,7 +149,7 @@ class UserBehavior(HttpUser):
         # load login page
         res = self.client.get(self._prefix + '/login')
         if res.ok:
-            logging.info("Loaded login page.")
+            logging.debug("Loaded login page.")
         else:
             logging.error(f"Could not load login page: {res.status_code}")
 
@@ -155,7 +157,7 @@ class UserBehavior(HttpUser):
         user = self._user
         login_request = self.client.post(self._prefix + "/loginAction", params={"username": user, "password": "password"})
         if login_request.ok:
-            logging.info(f"Login with username: {user}")
+            logging.debug(f"Login with username: {user}")
         else:
             logging.error(
                 f"Could not login with username: {user} - status: {login_request.status_code}")
@@ -172,15 +174,15 @@ class UserBehavior(HttpUser):
             page = randint(1, 5)
             category_request = self.client.get(self._prefix + "/category", params={"page": page, "category": category_id})
             if category_request.ok:
-                logging.info(f"Visited category {category_id} on page 1")
+                logging.debug(f"Visited category {category_id} on page 1")
                 # browses random product
                 product_id = randint(7, 506)
                 product_request = self.client.get(self._prefix + "/product", params={"id": product_id})
                 if product_request.ok:
-                    logging.info(f"Visited product with id {product_id}.")
+                    logging.debug(f"Visited product with id {product_id}.")
                     cart_request = self.client.post(self._prefix + "/cartAction", params={"addToCart": "", "productid": product_id})
                     if cart_request.ok:
-                        logging.info(f"Added product {product_id} to cart.")
+                        logging.debug(f"Added product {product_id} to cart.")
                     else:
                         logging.error(
                             f"Could not put product {product_id} in cart - status {cart_request.status_code}")
@@ -209,7 +211,7 @@ class UserBehavior(HttpUser):
         }
         buy_request = self.client.post(self._prefix + "/cartAction", params=user_data)
         if buy_request.ok:
-            logging.info(f"Bought products.")
+            logging.debug(f"Bought products.")
         else:
             logging.error("Could not buy products.")
 
@@ -220,7 +222,7 @@ class UserBehavior(HttpUser):
         """
         profile_request = self.client.get(self._prefix + "/profile")
         if profile_request.ok:
-            logging.info("Visited profile page.")
+            logging.debug("Visited profile page.")
         else:
             logging.error("Could not visit profile page.")
 
@@ -231,6 +233,6 @@ class UserBehavior(HttpUser):
         """
         logout_request = self.client.post(self._prefix + "/loginAction", params={"logout": ""})
         if logout_request.ok:
-            logging.info("Successful logout.")
+            logging.debug("Successful logout.")
         else:
             logging.error(f"Could not log out - status: {logout_request.status_code}")

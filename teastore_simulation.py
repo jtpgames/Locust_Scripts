@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 from datetime import datetime
@@ -34,8 +35,10 @@ async def startup_event():
     global predictive_model
     global known_request_types
 
-    predictive_model = load("Models/teastore_model_LR_02-12-2022.joblib")
-    known_request_types = load("Models/teastore_requests_mapping_02-12-2022.joblib")
+    predictive_model = load("Models/teastore_models/Ridge_model.joblib")
+    mapping_file = open("Models/teastore_models/cmd_names_mapping.json")
+    known_request_types = json.load(mapping_file)
+    mapping_file.close()
 
     logger.info(known_request_types)
 
@@ -55,14 +58,15 @@ def namer(name):
     return name.replace(".log.", "") + ".log"
 
 
-fh = TimedRotatingFileHandler(f"teastore-cmd_simulation.log", when='midnight')
-fh.setLevel(logging.DEBUG)
-fh.suffix = "_%Y-%m-%d"
-fh.namer = namer
+# fh = logging.FileHandler(f"teastore-cmd_simulation.log")
+# fh.setLevel(logging.DEBUG)
+# fh.suffix = "_%Y-%m-%d"
+# fh.namer = namer
 
-logging.basicConfig(format="[%(thread)d] %(asctime)s [%(levelname)s] %(message)s",
-                    level=os.environ.get("LOGLEVEL", "DEBUG"),
-                    handlers=[fh])
+logging.basicConfig(filename="teastore-cmd_simulation.log",
+                    filemode="w",
+                    format="%(message)s",
+                    level=logging.INFO)
 
 logger = logging.getLogger('Audit')
 
@@ -94,18 +98,19 @@ def log_end_command(tid, cmd):
 def predict_sleep_time(model, tid, command):
     request_type_as_int = known_request_types[command]
 
+    # changed order to comply with model
     X = numpy.reshape(
-        [startedCommands[tid]["parallelCommandsStart"],
-         startedCommands[tid]["parallelCommandsFinished"],
-         request_type_as_int],
+        [request_type_as_int,startedCommands[tid]["parallelCommandsStart"],
+         startedCommands[tid]["parallelCommandsFinished"]],
         (1, -1)
     )
 
-    Xframe = pandas.DataFrame(X, columns=['PR 1', 'PR 3', 'Request Type'])
+    # changed column names to comply with model
+    Xframe = pandas.DataFrame(X, columns=['cmd', 'pr_1', 'pr_3'])
 
-    logger.debug(f"-> X: {X} -")
+    logger.info(f"-> X: {X} -")
     y = model.predict(Xframe)
-    logger.debug(f"<- y: {y} -")
+    logger.info(f"<- y: {y} -")
 
     y_value = y[0]
     y_value = max(0, y_value)
@@ -122,7 +127,7 @@ async def simulate_processing_time(request: Request, call_next):
     total_sleep_time = 0
 
     sleep_time_to_use = predict_sleep_time(predictive_model, tid, found_command)
-    logger.debug(f"--> {found_command}: Waiting for {sleep_time_to_use}")
+    logger.info(f"--> {found_command}: Waiting for {sleep_time_to_use}")
     await asyncio.sleep(sleep_time_to_use)
     total_sleep_time += sleep_time_to_use
 
@@ -133,7 +138,7 @@ async def simulate_processing_time(request: Request, call_next):
         else:
             sleep_time_to_use = sleep_time_test - total_sleep_time
 
-        logger.debug(f"---> {found_command}: Waiting for {sleep_time_to_use}")
+        logger.info(f"---> {found_command}: Waiting for {sleep_time_to_use}")
         await asyncio.sleep(sleep_time_to_use)
         total_sleep_time += sleep_time_to_use
 
@@ -185,32 +190,38 @@ async def add_process_time_header(request: Request, call_next):
     response.headers["X-Process-Time"] = str(stopwatch)
     return response
 
+used_commands = {}
 
 @app.middleware("http")
 async def extract_command(request: Request, call_next):
-    logger.debug(request.url.path)
-
+    logger.warning(f"{request.method}{request.url.path}///{request.url}")
     if request.url.path == "/":
         return Response(content="Empty response", media_type="text/plain")
 
-    # command = request.url.path.removeprefix(prefix)
-    if request.url.path != prefix:
-        command = remove_prefix(request.url.path, prefix)
-    else:
-        command = "index"
+
+    # if request.url.path != prefix:
+    #     command = remove_prefix(request.url.path, prefix)
+    # else:
+    #     command = "index"
+
+    command = get_cmd(str(request.url.path))
 
     tid = request.scope['X-UID']
     log_info(tid, f"Cmd: {command}")
 
     found_command = None
 
+
     for known_command in known_request_types:
-        if command.lower() in known_command.lower():
+        if command.lower() == known_command.lower():
             found_command = known_command
+            used_commands[found_command] = True
             break
 
+    logger.info(used_commands)
     if found_command is None:
         raise HTTPException(status_code=404, detail="Command not found")
+
 
     logger.info(f"-> {found_command}")
 
@@ -219,13 +230,35 @@ async def extract_command(request: Request, call_next):
 
     return response
 
+def get_cmd(url: str) -> str:
+    if url.find("loginAction?username") > -1:
+        return "ID_login"
+    if url.find("loginAction?logout") > -1:
+        return "ID_logout"
+    if url.find("cartAction?firstname") > -1:
+        return "ID_order"
+    if url.find("cartAction?addToCart") > -1:
+        return "ID_add_to_cart"
+    if url.find("category") > -1:
+        return "ID_category"
+    if url.find("product") > -1:
+        return "ID_product"
+    if url.find("profile") > -1:
+        return "ID_profile"
+    if url.find("login") > -1:
+        return "ID_login_site"
+    if url.find("tools.descartes.teastore.webui"):
+        return "ID_index"
+    print(url)
+    return "ID_unknown"
+
 
 @app.middleware("http")
 async def add_unique_id(request: Request, call_next):
     unique_command_id = hash(uuid4())
 
-    # logger.debug(request.headers)
-    # logger.debug(request.cookies)
+    # logger.info(request.headers)
+    # logger.info(request.cookies)
 
     request.scope["X-UID"] = str(unique_command_id)
     response = await call_next(request)
@@ -335,7 +368,7 @@ if __name__ == "__main__":
         'worker_connections': 2048,
         'backlog': 2048,
         'reload': True,
-        'loglevel': "debug",
+        'loglevel': "info",
         'accesslog': "-"
     }
     StandaloneApplication(app, options).run()
