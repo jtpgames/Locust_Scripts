@@ -96,6 +96,7 @@ def call_locust_with(locust_script, url, clients, runtime_in_min=-1, omit_csv_fi
     params += f"--host={url} "
     params += "--headless "
     params += "--stop-timeout 10 "
+    params += "--only-summary "
     if omit_csv_files is False:
         params += f"--csv=loadtest_{clients}_clients "
     

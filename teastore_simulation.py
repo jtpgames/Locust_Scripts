@@ -186,7 +186,7 @@ async def track_parallel_requests(request: Request, call_next):
 async def extract_command(request: Request, call_next):
     logger.debug(request.url.path)
 
-    if request.url.path == "/":
+    if request.url.path == "/" or request.url.path == "/logs/reset":
         return Response(content="Empty response", media_type="text/plain")
 
     # command = request.url.path.removeprefix(prefix)

@@ -24,6 +24,7 @@ from uuid import uuid1
 import gevent
 from locust import HttpUser, task, LoadTestShape, constant, events
 from locust.env import Environment
+from locust.contrib.fasthttp import FastHttpUser
 
 import requests
 
@@ -41,11 +42,11 @@ stop_executing_users = False
 
 @events.test_start.add_listener
 def on_test_start(environment: Environment, **kwargs):
-    logs_endpoint = environment.host.replace(":8080", ":8081/logs/reset")
+    logs_endpoint = environment.host.replace(":8080", ":8081")
 
     logging.info("Resetting teastore logs")
-    response = requests.get(logs_endpoint)
-    logging.info(response.status_code)
+    response = requests.get(logs_endpoint + "/logs/reset")
+    logging.info(f"{response.status_code} - {response.text}")
 
     environment.stop_timeout = 10
 
@@ -98,7 +99,7 @@ class StagesShape(LoadTestShape):
                 if rps == 0:
                     rps = 1
                 print((time, rps))
-                self._stages.append({"duration": time, "users": rps, "spawn_rate": rps})
+                self._stages.append({"duration": time, "users": rps, "spawn_rate": 100})
 
     def tick(self):
         if self._is_tick_disabled:
@@ -124,7 +125,7 @@ class StagesShape(LoadTestShape):
 seed(42)
 
 
-class UserBehavior(HttpUser):
+class UserBehavior(FastHttpUser):
     wait_time = constant(1)
 
     _global_user_count = 0
@@ -133,16 +134,13 @@ class UserBehavior(HttpUser):
     def _get(self, url, params=None):
         request_id = uuid1().int
 
-        if params is None:
-            resp = self.client.get(url, headers={"Request-Id": str(request_id)})
-        else:
-            resp = self.client.get(url, params=params, headers={"Request-Id": str(request_id)})
+        resp = self.client.get(url, params=params, headers={"Request-Id": str(request_id)})
         global requests_counter
         requests_counter += 1
         self.wait()
         return resp
 
-    def _post(self, url, params):
+    def _post(self, url, params=None):
         request_id = uuid1().int
 
         resp = self.client.post(url, params=params, headers={"Request-Id": str(request_id)})
@@ -163,8 +161,6 @@ class UserBehavior(HttpUser):
         self._random = Random()
         self._random.seed(self._user_id)
 
-        # print(self._user)
-
     @task
     def load(self) -> None:
         """
@@ -173,18 +169,18 @@ class UserBehavior(HttpUser):
         """
 
         try:
-            logging.info(f"Starting user {self._user}")
+            logging.debug(f"Starting user {self._user}")
             self.visit_home()
             self.login()
             self.browse()
             # 50/50 chance to buy
             choice_buy = self._random.choice([True, False])
-            logging.info(f"{self._user}: choice: {choice_buy}")
+            logging.debug(f"{self._user}: choice: {choice_buy}")
             if choice_buy:
                 self.buy()
             self.visit_profile()
             self.logout()
-            logging.info(f"Completed user {self._user}.")
+            logging.debug(f"Completed user {self._user}.")
         except requests.exceptions.ConnectionError as e:
             logging.error(f"{e.request.url, str(e)}")
 
@@ -202,7 +198,7 @@ class UserBehavior(HttpUser):
         """
         # load landing page
         res = self._get(self._prefix + '/')
-        if res.ok:
+        if res.status_code == 200 or res.ok:
             logging.info("Loaded landing page.")
         else:
             logging.error(f"Could not load landing page: {res.status_code}")
@@ -214,15 +210,16 @@ class UserBehavior(HttpUser):
         """
         # load login page
         res = self._get(self._prefix + '/login')
-        if res.ok:
+        if res.status_code == 200 or res.ok:
             logging.info("Loaded login page.")
         else:
             logging.error(f"Could not load login page: {res.status_code}")
 
         # login user
         user = self._user
-        login_request = self._post(self._prefix + "/loginAction", params={"username": user, "password": "password"})
-        if login_request.ok:
+        url = f"/loginAction?username={user}&password=password"
+        login_request = self._post(self._prefix + url)
+        if login_request.status_code == 200 or login_request.ok:
             logging.info(f"Login with username: {user}")
         else:
             logging.error(
@@ -235,22 +232,28 @@ class UserBehavior(HttpUser):
         """
         # execute browsing action randomly up to 5 times
         for i in range(1, self._random.randint(2, 5)):
-            logging.info(f"{self._user}: {i}")
+            logging.debug(f"{self._user}: {i}")
             # browses random category and page
             category_id = self._random.randint(2, 6)
-            logging.info(f"{self._user}: {category_id}")
+            logging.debug(f"{self._user}: {category_id}")
             page = self._random.randint(1, 5)
-            logging.info(f"{self._user}: {page}")
-            category_request = self._get(self._prefix + "/category", params={"page": page, "category": category_id})
-            if category_request.ok:
+            logging.debug(f"{self._user}: {page}")
+            url = f"/category?page={page}&category={category_id}"
+            category_request = self._get(self._prefix + url)
+            # category_request = self._get(self._prefix + "/category", params={"page": page, "category": category_id})
+            if category_request.status_code == 200 or category_request.ok:
                 logging.info(f"Visited category {category_id} on page 1")
                 # browses random product
                 product_id = self._random.randint(7, 506)
-                product_request = self._get(self._prefix + "/product", params={"id": product_id})
-                if product_request.ok:
+                url = f"/product?id={product_id}"
+                product_request = self._get(self._prefix + url)
+                # product_request = self._get(self._prefix + "/product", params={"id": product_id})
+                if product_request.status_code == 200 or product_request.ok:
                     logging.info(f"Visited product with id {product_id}.")
-                    cart_request = self._post(self._prefix + "/cartAction", params={"addToCart": "", "productid": product_id})
-                    if cart_request.ok:
+                    url = f"/cartAction?addToCart=&productid={product_id}"
+                    cart_request = self._post(self._prefix + url)
+                    # cart_request = self._post(self._prefix + "/cartAction", params={"addToCart": "", "productid": product_id})
+                    if cart_request.status_code == 200 or cart_request.ok:
                         logging.info(f"Added product {product_id} to cart.")
                     else:
                         logging.error(
@@ -278,8 +281,14 @@ class UserBehavior(HttpUser):
             "expirydate": "12/2050",
             "confirm": "Confirm"
         }
-        buy_request = self._post(self._prefix + "/cartAction", params=user_data)
-        if buy_request.ok:
+        url = f"/cartAction" \
+              f"?firstname=User&lastname=User" \
+              f"&adress1=Road&adress2=City" \
+              f"&cardtype=volvo&cardnumber&314159265359&expirydate=12/2050" \
+              f"&confirm=Confirm"
+        buy_request = self._post(self._prefix + url)
+        # buy_request = self._post(self._prefix + "/cartAction", params=user_data)
+        if buy_request.status_code == 200 or buy_request.ok:
             logging.info(f"Bought products.")
         else:
             logging.error("Could not buy products.")
@@ -292,7 +301,7 @@ class UserBehavior(HttpUser):
         :return: None
         """
         profile_request = self._get(self._prefix + "/profile")
-        if profile_request.ok:
+        if profile_request.status_code == 200 or profile_request.ok:
             logging.info("Visited profile page.")
         else:
             logging.error("Could not visit profile page.")
@@ -302,8 +311,10 @@ class UserBehavior(HttpUser):
         User logout.
         :return: None
         """
-        logout_request = self._post(self._prefix + "/loginAction", params={"logout": ""})
-        if logout_request.ok:
+        url = f"/loginAction?logout="
+        logout_request = self._post(self._prefix + url)
+        # logout_request = self._post(self._prefix + "/loginAction", params={"logout": ""})
+        if logout_request.status_code == 200 or logout_request.ok:
             logging.info("Successful logout.")
         else:
             logging.error(f"Could not log out - status: {logout_request.status_code}")
