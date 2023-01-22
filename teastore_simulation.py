@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+
+# ###################### DEPRECATED ######################
+# ######## Replaced by the Rast-Simulator Project ########
+# Simulates the TeaStore software system using a model obtained by the RAST approach.
+
 import asyncio
 import logging
 import os
