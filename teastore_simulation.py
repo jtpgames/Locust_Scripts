@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
 # ###################### DEPRECATED ######################
-# ######## Replaced by the Rast-Simulator Project ########
+# ## Replaced by the Rast-Simulator Project ##############
+# ## Reason: Performance problems starting with ##########
+# ## the medium intensity load profile. ##################
 # Simulates the TeaStore software system using a model obtained by the RAST approach.
 
 import asyncio
