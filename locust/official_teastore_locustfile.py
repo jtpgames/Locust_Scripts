@@ -28,6 +28,8 @@ from locust.contrib.fasthttp import FastHttpUser
 
 import requests
 
+WITH_WARMUP_PHASE = True
+
 # logging
 logging.getLogger().setLevel(logging.INFO)
 
@@ -40,13 +42,17 @@ buy_counter = 0
 stop_executing_users = False
 
 
-@events.test_start.add_listener
-def on_test_start(environment: Environment, **kwargs):
+def reset_teastore_logs(environment: Environment):
     logs_endpoint = environment.host.replace(":8080", ":8081")
 
     logging.info("Resetting teastore logs")
     response = requests.get(logs_endpoint + "/logs/reset")
     logging.info(f"{response.status_code} - {response.text}")
+
+
+@events.test_start.add_listener
+def on_test_start(environment: Environment, **kwargs):
+    reset_teastore_logs(environment)
 
     environment.stop_timeout = 10
 
@@ -81,6 +87,8 @@ class StagesShape(LoadTestShape):
     """
 
     _is_tick_disabled = False
+    _is_warming_up = WITH_WARMUP_PHASE
+    _is_preparing_for_regular_load = False
     _last_tick_data = None
 
     _stages = []
@@ -101,27 +109,52 @@ class StagesShape(LoadTestShape):
                 print((time, rps))
                 self._stages.append({"duration": time, "users": rps, "spawn_rate": 100})
 
+    def start_regular_load_profile(self):
+        global requests_counter, buy_counter
+
+        logging.info(f"Warm-Up finished after sending {requests_counter} requests. Regular load profile starts.")
+
+        locust_environment.runner.stats.reset_all()
+        self.reset_time()
+        UserBehavior._currently_executing_users = 0
+        UserBehavior._global_user_count = 0
+
+        requests_counter = 0
+        buy_counter = 0
+
+        self._is_warming_up = False
+
     def tick(self):
         if self._is_tick_disabled:
             return self._last_tick_data
 
         run_time = self.get_run_time()
 
-        for stage in self._stages:
-            if run_time < stage["duration"]:
-                tick_data = (stage["users"], stage["spawn_rate"])
-                self._last_tick_data = tick_data
-                return tick_data
+        if self._is_warming_up:
+            if run_time < 5 * 60:
+                return 50, 50
+            else:
+                if not self._is_preparing_for_regular_load:
+                    gevent.spawn_later(5, lambda: reset_teastore_logs(locust_environment))
+                    gevent.spawn_later(10, self.start_regular_load_profile)
+                self._is_preparing_for_regular_load = True
+                return 0, 50
+        else:
+            for stage in self._stages:
+                if run_time < stage["duration"]:
+                    tick_data = (stage["users"], stage["spawn_rate"])
+                    self._last_tick_data = tick_data
+                    return tick_data
 
-        global stop_executing_users
-        stop_executing_users = True
-        logging.info("Stopping loadtest")
+            global stop_executing_users
+            stop_executing_users = True
+            logging.info("Stopping loadtest")
 
-        self._is_tick_disabled = True
-        return self._last_tick_data
+            self._is_tick_disabled = True
+            return self._last_tick_data
 
 
-# initialize the random seed value to get reproducible random sequences
+# initialize the random seed value to produce consistent random sequences in every load test.
 seed(42)
 
 
@@ -140,13 +173,14 @@ class UserBehavior(FastHttpUser):
         self.wait()
         return resp
 
-    def _post(self, url, params=None):
+    def _post(self, url, params=None, with_wait=True):
         request_id = uuid1().int
 
         resp = self.client.post(url, params=params, headers={"Request-Id": str(request_id)})
         global requests_counter
         requests_counter += 1
-        self.wait()
+        if with_wait:
+            self.wait()
         return resp
 
     def __init__(self, *args, **kwargs):
@@ -158,8 +192,18 @@ class UserBehavior(FastHttpUser):
         UserBehavior._global_user_count += 1
         UserBehavior._currently_executing_users += 1
 
+        # Produce consistent random sequences across subsequent load tests.
         self._random = Random()
         self._random.seed(self._user_id)
+
+        self._is_logged_in = False
+
+    def on_stop(self):
+        if self._is_logged_in:
+            try:
+                self.logout(with_wait=False)
+            except requests.exceptions.ConnectionError as e:
+                logging.error(f"{e.request.url, str(e)}")
 
     @task
     def load(self) -> None:
@@ -221,6 +265,7 @@ class UserBehavior(FastHttpUser):
         login_request = self._post(self._prefix + url)
         if login_request.status_code == 200 or login_request.ok:
             logging.info(f"Login with username: {user}")
+            self._is_logged_in = True
         else:
             logging.error(
                 f"Could not login with username: {user} - status: {login_request.status_code}")
@@ -306,15 +351,16 @@ class UserBehavior(FastHttpUser):
         else:
             logging.error("Could not visit profile page.")
 
-    def logout(self) -> None:
+    def logout(self, with_wait=True) -> None:
         """
         User logout.
         :return: None
         """
         url = f"/loginAction?logout="
-        logout_request = self._post(self._prefix + url)
+        logout_request = self._post(self._prefix + url, with_wait=with_wait)
         # logout_request = self._post(self._prefix + "/loginAction", params={"logout": ""})
         if logout_request.status_code == 200 or logout_request.ok:
             logging.info("Successful logout.")
+            self._is_logged_in = False
         else:
             logging.error(f"Could not log out - status: {logout_request.status_code}")

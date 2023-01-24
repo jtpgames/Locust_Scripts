@@ -4,7 +4,8 @@
 # ## Replaced by the Rast-Simulator Project ##############
 # ## Reason: Performance problems starting with ##########
 # ## the medium intensity load profile. ##################
-# Simulates the TeaStore software system using a model obtained by the RAST approach.
+# Simulates the TeaStore software system using a model
+# obtained by the RAST approach.
 
 import asyncio
 import logging
