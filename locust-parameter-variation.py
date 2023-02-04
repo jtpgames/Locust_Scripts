@@ -109,11 +109,10 @@ def config_complies_with_real_time_requirements(num_clients):
     return is_compliant
 
 
-def parameter_variation_loop():
+def parameter_variation_loop(multiplier: int = 5000):
     logger = logging.getLogger('parameter_variation_loop')
 
     num_clients = 1
-    multiplier = 5000
     x = 1
     y = 0
 
@@ -135,7 +134,7 @@ def parameter_variation_loop():
         else:
             x += 1
 
-        call_locust_and_distribute_work(locust_script, url, num_clients, runtime_in_min=10)
+        call_locust_and_distribute_work(locust_script, url, num_clients, runtime_in_min=1, use_load_test_shape=False)
         # call_locust_with(locust_script, url, num_clients, runtime_in_min=10, omit_csv_files=True)
 
         read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv", num_clients)
@@ -146,7 +145,11 @@ def parameter_variation_loop():
 def read_cli_args():
     parser = argparse.ArgumentParser(description='Locust Wrapper.')
     parser.add_argument('locust_script', help='Path to the locust script to execute')
-    parser.add_argument('-p', '--parametervariation', action='store_true', help='run the test and variate parameters.')
+    parser.add_argument('-p', '--parametervariation', action='store_true', help='run the test and variate parameters')
+    parser.add_argument('-m', '--multiplier',
+                        type=int,
+                        help='start and linearly increase number of clients by the given multiplier',
+                        default=5000)
     parser.add_argument('-u', '--url', help='URL of the System under Test')
 
     global input_args
@@ -163,7 +166,7 @@ if __name__ == "__main__":
         url = input_args.url
 
     if input_args.parametervariation:
-        parameter_variation_loop()
+        parameter_variation_loop(input_args.multiplier)
     else:
         call_locust_with(locust_script, url, clients=1)
 

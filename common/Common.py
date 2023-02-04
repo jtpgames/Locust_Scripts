@@ -51,12 +51,14 @@ def readResponseTimesFromLogFile(path: str) -> Dict[datetime, float]:
     return response_times
 
 
-def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min):
+def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min, use_load_test_shape=True):
     logger = logging.getLogger('call_locust_and_distribute_work')
 
     params = f"-f {locust_script} "
     params += f"--host={url} "
     params += "--headless "
+    params += "--stop-timeout 10 "
+    params += "--only-summary "
 
     locust_path = "locust"
     if path.exists("venv/bin/locust"):
@@ -68,7 +70,8 @@ def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min)
         logger.info(f"Starting {i+1}. worker")
 
         os.system(
-            f"{locust_path} {params} \
+            f"env use_load_test_shape={use_load_test_shape} \
+            {locust_path} {params} \
                 --logfile worker_log_{clients}.{i+1}.log \
                 --worker &"
         )
@@ -77,7 +80,8 @@ def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min)
     logger.info(f"--expect-workers={num_workers}")
 
     os.system(
-        f"{locust_path} {params} \
+        f"env use_load_test_shape={use_load_test_shape} \
+        {locust_path} {params} \
             --run-time={runtime_in_min}m \
             --users={clients} --spawn-rate={num_workers * 100} \
             --logfile locust_log_{clients}.log \
@@ -87,7 +91,7 @@ def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min)
     )
 
 
-def call_locust_with(locust_script, url, clients, runtime_in_min=-1, omit_csv_files=False):
+def call_locust_with(locust_script, url, clients, runtime_in_min=-1, omit_csv_files=False, use_load_test_shape=True):
     logger = logging.getLogger('call_locust_with')
 
     logger.info("Starting locust with (%s, %s)", clients, runtime_in_min)
@@ -106,14 +110,16 @@ def call_locust_with(locust_script, url, clients, runtime_in_min=-1, omit_csv_fi
 
     if runtime_in_min > 0:
         os.system(
-            f"{locust_path} {params} \
+            f"env use_load_test_shape={use_load_test_shape} \
+            {locust_path} {params} \
             --users={clients} --spawn-rate=100 \
             --run-time={runtime_in_min}m \
             --logfile locust_log_{clients}.log"
         )
     else:
         os.system(
-            f"{locust_path} {params} \
+            f"env use_load_test_shape={use_load_test_shape} \
+            {locust_path} {params} \
             --users={clients} --spawn-rate={clients} \
             --logfile locust_log.log"
         )

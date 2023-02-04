@@ -6,7 +6,7 @@
 # The modifications include:
 # * A loadtest shape that, depending on a workload defined in a .csv file,
 #   steadily increases the load and stops the test. This loadtest shape tries to
-#   mimic the loadtest of the
+#   mimic the load intensity profile of the
 #   teastore developers: https://github.com/DescartesResearch/TeaStore/tree/master/examples/httploadgenerator
 # * Reset the logfiles of teastore before starting the test.
 # * Additional logging for better insight and postprocessing of the measured response times.
@@ -15,6 +15,7 @@
 # * Minor refactoring and quality of life improvements like sending a unique request-id.
 
 import logging
+import os
 from datetime import timedelta
 from random import seed, Random
 
@@ -28,7 +29,13 @@ from locust.contrib.fasthttp import FastHttpUser
 
 import requests
 
-WITH_WARMUP_PHASE = True
+# Buy profile is not recommended by the TeaStore developers because it performs changes to the database
+USE_BUY_PROFILE = False
+
+# If true:
+# Send around 15.000 requests over the course of 5 minutes
+# to warm up the JVM as much as possible (default Tier4Threshold)
+WITH_WARMUP_PHASE = False
 
 # logging
 logging.getLogger().setLevel(logging.INFO)
@@ -46,8 +53,11 @@ def reset_teastore_logs(environment: Environment):
     logs_endpoint = environment.host.replace(":8080", ":8081")
 
     logging.info("Resetting teastore logs")
-    response = requests.get(logs_endpoint + "/logs/reset")
-    logging.info(f"{response.status_code} - {response.text}")
+    try:
+        response = requests.get(logs_endpoint + "/logs/reset")
+        logging.info(f"{response.status_code} - {response.text}")
+    except Exception as e:
+        logging.warning(str(e))
 
 
 @events.test_start.add_listener
@@ -96,6 +106,12 @@ class StagesShape(LoadTestShape):
     def __init__(self):
         super().__init__()
 
+        self._use_load_test_shape: bool = eval(os.environ['use_load_test_shape'])
+
+        if not self._use_load_test_shape:
+            logging.info("Load test shape deactivated by environment variable 'use_load_test_shape'")
+            return
+
         with open("locust/increasingLowIntensity.csv") as intensityFile:
         # with open("locust/increasingMedIntensity.csv") as intensityFile:
         # with open("locust/increasingHighIntensity.csv") as intensityFile:
@@ -116,8 +132,9 @@ class StagesShape(LoadTestShape):
 
         locust_environment.runner.stats.reset_all()
         self.reset_time()
-        UserBehavior._currently_executing_users = 0
-        UserBehavior._global_user_count = 0
+        UserBehavior.currently_executing_users = 0
+        UserBehavior.global_user_count = 0
+        UserBehavior.use_buy_profile = USE_BUY_PROFILE
 
         requests_counter = 0
         buy_counter = 0
@@ -125,6 +142,12 @@ class StagesShape(LoadTestShape):
         self._is_warming_up = False
 
     def tick(self):
+        if not self._use_load_test_shape:
+            if locust_environment is None:
+                return 1, 1
+            else:
+                return locust_environment.parsed_options.num_users, 100
+
         if self._is_tick_disabled:
             return self._last_tick_data
 
@@ -161,8 +184,10 @@ seed(42)
 class UserBehavior(FastHttpUser):
     wait_time = constant(1)
 
-    _global_user_count = 0
-    _currently_executing_users = 0
+    global_user_count = 0
+    currently_executing_users = 0
+
+    use_buy_profile = False if WITH_WARMUP_PHASE else USE_BUY_PROFILE
 
     def _get(self, url, params=None):
         request_id = uuid1().int
@@ -187,10 +212,10 @@ class UserBehavior(FastHttpUser):
         super().__init__(*args, **kwargs)
         self._prefix = self.host + "/tools.descartes.teastore.webui"
 
-        self._user_id = UserBehavior._global_user_count
+        self._user_id = UserBehavior.global_user_count
         self._user = "user" + str(self._user_id)
-        UserBehavior._global_user_count += 1
-        UserBehavior._currently_executing_users += 1
+        UserBehavior.global_user_count += 1
+        UserBehavior.currently_executing_users += 1
 
         # Produce consistent random sequences across subsequent load tests.
         self._random = Random()
@@ -217,11 +242,12 @@ class UserBehavior(FastHttpUser):
             self.visit_home()
             self.login()
             self.browse()
-            # 50/50 chance to buy
-            choice_buy = self._random.choice([True, False])
-            logging.debug(f"{self._user}: choice: {choice_buy}")
-            if choice_buy:
-                self.buy()
+            if UserBehavior.use_buy_profile:
+                # 50/50 chance to buy
+                choice_buy = self._random.choice([True, False])
+                logging.debug(f"{self._user}: choice: {choice_buy}")
+                if choice_buy:
+                    self.buy()
             self.visit_profile()
             self.logout()
             logging.debug(f"Completed user {self._user}.")
@@ -229,10 +255,10 @@ class UserBehavior(FastHttpUser):
             logging.error(f"{e.request.url, str(e)}")
 
         if stop_executing_users:
-            if UserBehavior._currently_executing_users == 1:
+            if UserBehavior.currently_executing_users == 1:
                 gevent.spawn_later(2, locust_environment.runner.quit)
             self.stop()
-            UserBehavior._currently_executing_users -= 1
+            UserBehavior.currently_executing_users -= 1
             return
 
     def visit_home(self) -> None:
