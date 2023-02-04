@@ -1,5 +1,5 @@
-RAST Simulator and Load Tester Components (MASCOTS 2022)
----
+# RAST Simulator and Load Tester Components (MASCOTS 2022)
+
 **Last change from: 31.10.2022**
 
 In our latest publication at MASCOTS 2022 (TODO: link), we explain our extension of this project.
@@ -14,7 +14,7 @@ We modelled the link parameters based on the infrastructure of the SUE;
 
 > Tested with
 > * Python 3.8.10 on Ubuntu 20.04 LTS
-> * Python 3.9.12 on Mac OS 12.6.1
+> * Python 3.9.12 on macOS 12.6.1
 
 * Clone the repository
 * run `cd <the_directory_you_cloned_the_repository>`
@@ -37,8 +37,8 @@ The locust-parameter-variation.log is of particular interest
 as it contains the measured average and maximum response times 
 depending on the number of simulated alarm devices.
 
-Locust Performance Testing Infrastructure (MASCOTS 2020)
----
+# Locust Performance Testing Infrastructure (MASCOTS 2020)
+
 **Last change from: 06.06.2021**
 
 In [[1]](https://www.doi.org/10.1007/978-3-030-68110-4_9), we introduced a 
