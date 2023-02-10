@@ -2,39 +2,56 @@
 import csv
 import logging
 import os
+from dataclasses import dataclass
 
 import typer
 
 from common.Common import call_locust_with
 
-average_response_time = {}
-min_response_time = {}
-max_response_time = {}
+response_time_statistics = {}
 
 
-def read_measurements_from_locust_csv_and_append_to_dictonaries(path, num_clients):
+@dataclass
+class RequestStatistics:
+    avg: float = 0
+    min: float = 0
+    max: float = 0
+
+
+def read_measurements_from_locust_csv_and_append_to_dictonaries(path):
     logger = logging.getLogger('readMeasurementsFromCsvAndAppendToDictonaries')
 
     with open(path, newline='') as csvfile:
         reader = csv.DictReader(csvfile)
 
-        avg = 0
-        min = 0
-        max = 0
         for row in reader:
+            type = row['Type']
+            name: str = row['Name']
+            request_name = name.split('/')[len(name.split('/')) - 1]
+            if request_name == "" or request_name == "Aggregated":
+                continue
+
+            if len(request_name.split('?')) > 1:
+                request_name = request_name.split('?')[0]
+
+            request = f"{type} {request_name}"
+
+            if request not in response_time_statistics:
+                response_time_statistics[request] = RequestStatistics()
+
+            r = response_time_statistics[request]
+
             v = float(row['Average Response Time'])
-            avg = v if avg < v else avg
+            r.avg = v if r.avg < v else r.avg
 
             v = float(row['Min Response Time'])
-            min = v if min < v else min
+            r.min = v if r.min < v else r.min
 
             v = float(row['Max Response Time'])
-            max = v if max < v else max
+            r.max = v if r.max < v else r.max
 
-        logger.info("Avg: {}, Min: {}, Max: {}".format(avg, min, max))
-        average_response_time[num_clients] = float(avg)
-        min_response_time[num_clients] = float(min)
-        max_response_time[num_clients] = float(max)
+        for r in response_time_statistics.items():
+            logger.info(f"Request: {r}")
 
 
 def main(
@@ -74,7 +91,7 @@ def main(
     call_locust_with(locust_script, url, num_clients, runtime, silent)
 
     if silent is False:
-        read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv", 1)
+        read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv")
 
 
 if __name__ == "__main__":
