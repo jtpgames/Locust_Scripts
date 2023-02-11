@@ -45,7 +45,10 @@ def read_measurements_from_locust_csv_and_append_to_dictonaries(path):
             r.avg = v if r.avg < v else r.avg
 
             v = float(row['Min Response Time'])
-            r.min = v if r.min < v else r.min
+            if r.min == 0:
+                r.min = v
+            else:
+                r.min = v if r.min > v else r.min
 
             v = float(row['Max Response Time'])
             r.max = v if r.max < v else r.max
