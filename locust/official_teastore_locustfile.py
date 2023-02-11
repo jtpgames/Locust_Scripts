@@ -77,7 +77,13 @@ def on_test_stop(environment: Environment, **kwargs):
 
 @events.request_success.add_listener
 def my_success_handler(request_type, name, response_time, response_length, **kw):
-    logging.info("Response time %s ms", response_time)
+    request_name = name.split('/')[len(name.split('/')) - 1]
+    if request_name == "":
+        request_name = "index"
+    if len(request_name.split('?')) > 1:
+        request_name = request_name.split('?')[0]
+
+    logging.info("(%s %s) Response time %s ms", request_type, request_name, response_time)
 
 
 @events.request_failure.add_listener

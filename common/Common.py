@@ -26,6 +26,41 @@ def dir_path(path):
         raise argparse.ArgumentTypeError(f"readable_dir:{path} is not a valid path")
 
 
+def read_response_times_from_locust_logfile(path: str):
+    response_times = []
+    time_stamps = []
+
+    if 'locust_log' not in path:
+        return response_times
+
+    with open(path) as logfile:
+        for line in logfile:
+            if 'Response time' not in line:
+                continue
+
+            time_stamp = datetime.strptime(search('\\[.*\\]', line).group(), '[%Y-%m-%d %H:%M:%S,%f]')
+            request_type = search('\\(.*\\)', line)
+            if request_type is not None:
+                request_type = request_type.group()
+                request_type = request_type.strip('()')
+            response_time = search('(?<=Response time\\s)\\d*', line).group()
+
+            while True:
+                if time_stamp in time_stamps:
+                    time_stamp += timedelta(microseconds=100)
+                else:
+                    break
+
+            time_stamps.append(time_stamp)
+            response_times.append({
+                "time_stamp": time_stamp,
+                "request_type": request_type,
+                "response_time_ms": float(response_time)
+            })
+
+    return response_times
+
+
 def readResponseTimesFromLogFile(path: str) -> Dict[datetime, float]:
     response_times = {}
 
