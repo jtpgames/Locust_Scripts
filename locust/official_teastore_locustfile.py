@@ -193,6 +193,8 @@ class UserBehavior(FastHttpUser):
     global_user_count = 0
     currently_executing_users = 0
 
+    completed_workload_cycles_per_user = 2
+
     use_buy_profile = False if WITH_WARMUP_PHASE else USE_BUY_PROFILE
 
     def _get(self, url, params=None):
@@ -223,6 +225,8 @@ class UserBehavior(FastHttpUser):
         UserBehavior.global_user_count += 1
         UserBehavior.currently_executing_users += 1
 
+        self.number_of_completed_workload_cycles = 0
+
         # Produce consistent random sequences across subsequent load tests.
         self._random = Random()
         self._random.seed(self._user_id)
@@ -244,23 +248,27 @@ class UserBehavior(FastHttpUser):
         """
 
         try:
-            logging.debug(f"Starting user {self._user}")
-            self.visit_home()
-            self.login()
-            self.browse()
-            if UserBehavior.use_buy_profile:
-                # 50/50 chance to buy
-                choice_buy = self._random.choice([True, False])
-                logging.debug(f"{self._user}: choice: {choice_buy}")
-                if choice_buy:
-                    self.buy()
-            self.visit_profile()
-            self.logout()
-            logging.debug(f"Completed user {self._user}.")
+            if self.number_of_completed_workload_cycles >= UserBehavior.completed_workload_cycles_per_user:
+                logging.debug(f"Max number of workload cycles reached. Skipping user {self._user}")
+            else:
+                logging.debug(f"Starting user {self._user}")
+                self.visit_home()
+                self.login()
+                self.browse()
+                if UserBehavior.use_buy_profile:
+                    # 50/50 chance to buy
+                    choice_buy = self._random.choice([True, False])
+                    logging.debug(f"{self._user}: choice: {choice_buy}")
+                    if choice_buy:
+                        self.buy()
+                self.visit_profile()
+                self.logout()
+                logging.debug(f"Completed user {self._user}.")
+                self.number_of_completed_workload_cycles += 1
         except requests.exceptions.ConnectionError as e:
             logging.error(f"{e.request.url, str(e)}")
 
-        if stop_executing_users:
+        if stop_executing_users and self.number_of_completed_workload_cycles >= UserBehavior.completed_workload_cycles_per_user:
             if UserBehavior.currently_executing_users == 1:
                 gevent.spawn_later(2, locust_environment.runner.quit)
             self.stop()
