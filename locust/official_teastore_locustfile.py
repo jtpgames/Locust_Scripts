@@ -119,6 +119,7 @@ class StagesShape(LoadTestShape):
             return
 
         with open("locust/increasingLowIntensity.csv") as intensityFile:
+        # with open("locust/increasingLow2Intensity.csv") as intensityFile:
         # with open("locust/increasingMedIntensity.csv") as intensityFile:
         # with open("locust/increasingHighIntensity.csv") as intensityFile:
             reader = csv.DictReader(intensityFile, ['time', 'rps'])
