@@ -43,8 +43,14 @@ logging.getLogger().setLevel(logging.INFO)
 # noinspection PyTypeChecker
 locust_environment: Environment = None
 
-requests_counter = 0
-buy_counter = 0
+total_requests_counter = 0
+login_page_requests_counter = 0
+login_requests_counter = 0
+logout_requests_counter = 0
+category_requests_counter = 0
+product_requests_counter = 0
+add_to_cart_requests_counter = 0
+buy_requests_counter = 0
 
 stop_executing_users = False
 
@@ -72,7 +78,15 @@ def on_test_start(environment: Environment, **kwargs):
 
 @events.test_stop.add_listener
 def on_test_stop(environment: Environment, **kwargs):
-    logging.info(f"Test stopped with {requests_counter} total requests send and {buy_counter} buy requests.")
+    logging.info(f"Test stopped with \n"
+                 f"{total_requests_counter} total requests send, \n"
+                 f"{login_page_requests_counter} GET login page requests, \n"
+                 f"{login_requests_counter} POST login requests, \n"
+                 f"{logout_requests_counter} POST login (logout) requests, \n"
+                 f"{category_requests_counter} GET category requests, \n"
+                 f"{product_requests_counter} GET product requests, \n"
+                 f"{add_to_cart_requests_counter} POST add to cart requests, \n"
+                 f"{buy_requests_counter} POST buy requests.")
 
 
 @events.request_success.add_listener
@@ -133,9 +147,9 @@ class StagesShape(LoadTestShape):
                 self._stages.append({"duration": time, "users": rps, "spawn_rate": 100})
 
     def start_regular_load_profile(self):
-        global requests_counter, buy_counter
+        global total_requests_counter, buy_requests_counter
 
-        logging.info(f"Warm-Up finished after sending {requests_counter} requests. Regular load profile starts.")
+        logging.info(f"Warm-Up finished after sending {total_requests_counter} requests. Regular load profile starts.")
 
         locust_environment.runner.stats.reset_all()
         self.reset_time()
@@ -143,8 +157,8 @@ class StagesShape(LoadTestShape):
         UserBehavior.global_user_count = 0
         UserBehavior.use_buy_profile = USE_BUY_PROFILE
 
-        requests_counter = 0
-        buy_counter = 0
+        total_requests_counter = 0
+        buy_requests_counter = 0
 
         self._is_warming_up = False
 
@@ -202,8 +216,8 @@ class UserBehavior(FastHttpUser):
         request_id = uuid1().int
 
         resp = self.client.get(url, params=params, headers={"Request-Id": str(request_id)})
-        global requests_counter
-        requests_counter += 1
+        global total_requests_counter
+        total_requests_counter += 1
         self.wait()
         return resp
 
@@ -211,8 +225,8 @@ class UserBehavior(FastHttpUser):
         request_id = uuid1().int
 
         resp = self.client.post(url, params=params, headers={"Request-Id": str(request_id)})
-        global requests_counter
-        requests_counter += 1
+        global total_requests_counter
+        total_requests_counter += 1
         if with_wait:
             self.wait()
         return resp
@@ -220,6 +234,9 @@ class UserBehavior(FastHttpUser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._prefix = self.host + "/tools.descartes.teastore.webui"
+
+        self.network_timeout = 120
+        self.connection_timeout = 120
 
         self._user_id = UserBehavior.global_user_count
         self._user = "user" + str(self._user_id)
@@ -299,6 +316,8 @@ class UserBehavior(FastHttpUser):
             logging.info("Loaded login page.")
         else:
             logging.error(f"Could not load login page: {res.status_code}")
+        global login_page_requests_counter
+        login_page_requests_counter += 1
 
         # login user
         user = self._user
@@ -310,12 +329,17 @@ class UserBehavior(FastHttpUser):
         else:
             logging.error(
                 f"Could not login with username: {user} - status: {login_request.status_code}")
+        global login_requests_counter
+        login_requests_counter += 1
 
     def browse(self) -> None:
         """
         Simulates random browsing behaviour.
         :return: None
         """
+
+        global category_requests_counter, product_requests_counter, add_to_cart_requests_counter
+
         # execute browsing action randomly up to 5 times
         for i in range(1, self._random.randint(2, 5)):
             logging.debug(f"{self._user}: {i}")
@@ -344,12 +368,15 @@ class UserBehavior(FastHttpUser):
                     else:
                         logging.error(
                             f"Could not put product {product_id} in cart - status {cart_request.status_code}")
+                    add_to_cart_requests_counter += 1
                 else:
                     logging.error(
                         f"Could not visit product {product_id} - status {product_request.status_code}")
+                product_requests_counter += 1
             else:
                 logging.error(
                     f"Could not visit category {category_id} on page 1 - status {category_request.status_code}")
+            category_requests_counter += 1
 
     def buy(self) -> None:
         """
@@ -378,8 +405,8 @@ class UserBehavior(FastHttpUser):
             logging.info(f"Bought products.")
         else:
             logging.error("Could not buy products.")
-        global buy_counter
-        buy_counter += 1
+        global buy_requests_counter
+        buy_requests_counter += 1
 
     def visit_profile(self) -> None:
         """
@@ -405,3 +432,5 @@ class UserBehavior(FastHttpUser):
             self._is_logged_in = False
         else:
             logging.error(f"Could not log out - status: {logout_request.status_code}")
+        global logout_requests_counter
+        logout_requests_counter += 1
