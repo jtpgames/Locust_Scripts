@@ -35,8 +35,8 @@ async def startup_event():
     global predictive_model
     global known_request_types
 
-    predictive_model = load("Models/teastore_models/Ridge_model.joblib")
-    mapping_file = open("Models/teastore_models/cmd_names_mapping.json")
+    predictive_model = load("Models/teastore/SGDRegressor_model.joblib")
+    mapping_file = open("Models/teastore/cmd_names_mapping.json")
     known_request_types = json.load(mapping_file)
     mapping_file.close()
 
