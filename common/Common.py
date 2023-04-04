@@ -99,7 +99,6 @@ def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min,
     if path.exists("venv/bin/locust"):
         locust_path = "venv/bin/locust"
 
-
     num_workers = 5
     for i in range(0, num_workers):
         logger.info(f"Starting {i+1}. worker")

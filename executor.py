@@ -60,6 +60,52 @@ def read_measurements_from_locust_csv_and_append_to_dictonaries(path):
             logger.info(f"Request: {r}")
 
 
+def analyse_teastore_response_times():
+    response_times = read_response_times_from_locust_logfile("locust_log.log")
+    df = DataFrame.from_records(response_times)
+    df_grouped_by_request_type = df.groupby(['request_type'])
+    df_mean_response_times = df_grouped_by_request_type.mean()
+    df_min_response_times = df_grouped_by_request_type.min()
+    df_max_response_times = df_grouped_by_request_type.max()
+    get_login = RequestStatistics(
+        df_mean_response_times.loc['GET login', 'response_time_ms'],
+        df_min_response_times.loc['GET login', 'response_time_ms'],
+        df_max_response_times.loc['GET login', 'response_time_ms']
+    )
+    post_login_action = RequestStatistics(
+        df_mean_response_times.loc['POST loginAction', 'response_time_ms'],
+        df_min_response_times.loc['POST loginAction', 'response_time_ms'],
+        df_max_response_times.loc['POST loginAction', 'response_time_ms']
+    )
+    get_category = RequestStatistics(
+        df_mean_response_times.loc['GET category', 'response_time_ms'],
+        df_min_response_times.loc['GET category', 'response_time_ms'],
+        df_max_response_times.loc['GET category', 'response_time_ms']
+    )
+    get_product = RequestStatistics(
+        df_mean_response_times.loc['GET product', 'response_time_ms'],
+        df_min_response_times.loc['GET product', 'response_time_ms'],
+        df_max_response_times.loc['GET product', 'response_time_ms']
+    )
+    post_cart_action = RequestStatistics(
+        df_mean_response_times.loc['POST cartAction', 'response_time_ms'],
+        df_min_response_times.loc['POST cartAction', 'response_time_ms'],
+        df_max_response_times.loc['POST cartAction', 'response_time_ms']
+    )
+    get_profile = RequestStatistics(
+        df_mean_response_times.loc['GET profile', 'response_time_ms'],
+        df_min_response_times.loc['GET profile', 'response_time_ms'],
+        df_max_response_times.loc['GET profile', 'response_time_ms']
+    )
+    logging.info("Measurements from Locust .log file")
+    logging.info(f"GET login: {get_login}")
+    logging.info(f"GET category: {get_category}")
+    logging.info(f"GET product: {get_product}")
+    logging.info(f"GET profile: {get_profile}")
+    logging.info(f"POST loginAction: {post_login_action}")
+    logging.info(f"POST cartAction: {post_cart_action}")
+
+
 def main(
         locust_script: str = typer.Argument(
             ...,
@@ -99,58 +145,8 @@ def main(
     if silent is False:
         read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv")
 
-    response_times = read_response_times_from_locust_logfile("locust_log.log")
-    df = DataFrame.from_records(response_times)
-
-    df_grouped_by_request_type = df.groupby(['request_type'])
-
-    df_mean_response_times = df_grouped_by_request_type.mean()
-    df_min_response_times = df_grouped_by_request_type.min()
-    df_max_response_times = df_grouped_by_request_type.max()
-
-    get_login = RequestStatistics(
-        df_mean_response_times.loc['GET login', 'response_time_ms'],
-        df_min_response_times.loc['GET login', 'response_time_ms'],
-        df_max_response_times.loc['GET login', 'response_time_ms']
-    )
-
-    post_login_action = RequestStatistics(
-        df_mean_response_times.loc['POST loginAction', 'response_time_ms'],
-        df_min_response_times.loc['POST loginAction', 'response_time_ms'],
-        df_max_response_times.loc['POST loginAction', 'response_time_ms']
-    )
-
-    get_category = RequestStatistics(
-        df_mean_response_times.loc['GET category', 'response_time_ms'],
-        df_min_response_times.loc['GET category', 'response_time_ms'],
-        df_max_response_times.loc['GET category', 'response_time_ms']
-    )
-
-    get_product = RequestStatistics(
-        df_mean_response_times.loc['GET product', 'response_time_ms'],
-        df_min_response_times.loc['GET product', 'response_time_ms'],
-        df_max_response_times.loc['GET product', 'response_time_ms']
-    )
-
-    post_cart_action = RequestStatistics(
-        df_mean_response_times.loc['POST cartAction', 'response_time_ms'],
-        df_min_response_times.loc['POST cartAction', 'response_time_ms'],
-        df_max_response_times.loc['POST cartAction', 'response_time_ms']
-    )
-
-    get_profile = RequestStatistics(
-        df_mean_response_times.loc['GET profile', 'response_time_ms'],
-        df_min_response_times.loc['GET profile', 'response_time_ms'],
-        df_max_response_times.loc['GET profile', 'response_time_ms']
-    )
-
-    logging.info("Measurements from Locust .log file")
-    logging.info(f"GET login: {get_login}")
-    logging.info(f"GET category: {get_category}")
-    logging.info(f"GET product: {get_product}")
-    logging.info(f"GET profile: {get_profile}")
-    logging.info(f"POST loginAction: {post_login_action}")
-    logging.info(f"POST cartAction: {post_cart_action}")
+    if "teastore" in locust_script:
+        analyse_teastore_response_times()
 
 
 if __name__ == "__main__":

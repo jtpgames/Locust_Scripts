@@ -6,6 +6,7 @@
 # HTTPServer based on https://gist.github.com/huyng/814831 Written by Nathan Hamiel (2010)
 
 import asyncio
+import json
 import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -75,7 +76,7 @@ class PredictiveModel:
 
 
 class ThreadingHTTPServerWithBigQueue(ThreadingHTTPServer):
-    request_queue_size = 1024
+    request_queue_size = 20000
 
 
 # -- Fault Management Model --
@@ -250,8 +251,12 @@ if MASCOTS2022:
     predictive_model = load("Models/gs_model_prod_workload_mascots2022.joblib")
     known_request_types = load("Models/gs_requests_mapping_prod_workload_mascots2022.joblib")
 else:
-    predictive_model = load("Models/gs_model_LR_03-11-2022.joblib")
-    known_request_types = load("Models/gs_requests_mapping_03-11-2022.joblib")
+    # predictive_model = load("Models/gs_model_LR_03-11-2022.joblib")
+    # known_request_types = load("Models/gs_requests_mapping_03-11-2022.joblib")
+
+    predictive_model = load("Models/gs_model_DT_18-03-2023.joblib")
+    with open("Models/gs_requests_mapping_18-03-2023.json") as mapping_file:
+        known_request_types = json.load(mapping_file)
 
 
 async def simulate_workload_using_predictive_model(function: str, use_await=False):
@@ -320,8 +325,6 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
 
 
 def predict_sleep_time(model, tid, command):
-    from numpy import array
-
     now = datetime.now()
 
     time = now.timetz()
@@ -340,14 +343,25 @@ def predict_sleep_time(model, tid, command):
     #            1]) \
     #     .reshape(1, -1)
 
+    # X = numpy.reshape(
+    #     [startedCommands[tid]["parallelCommandsStart"],
+    #      startedCommands[tid]["parallelCommandsFinished"],
+    #      request_type_as_int],
+    #     (1, -1)
+    # )
+
+    # changed order to comply with model
     X = numpy.reshape(
-        [startedCommands[tid]["parallelCommandsStart"],
-         startedCommands[tid]["parallelCommandsFinished"],
-         request_type_as_int],
+        [request_type_as_int,
+         startedCommands[tid]["parallelCommandsStart"],
+         startedCommands[tid]["parallelCommandsFinished"]],
         (1, -1)
     )
 
-    Xframe = pandas.DataFrame(X, columns=['PR 1', 'PR 3', 'Request Type'])
+    # Xframe = pandas.DataFrame(X, columns=['PR 1', 'PR 3', 'Request Type'])
+
+    # changed column names to comply with model
+    Xframe = pandas.DataFrame(X, columns=['cmd', 'pr_1', 'pr_3'])
 
     logger.debug(f"-> X: {X} -")
     y = model.predict(Xframe)
