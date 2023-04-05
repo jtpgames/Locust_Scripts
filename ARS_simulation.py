@@ -259,7 +259,7 @@ else:
         known_request_types = json.load(mapping_file)
 
 
-async def simulate_workload_using_predictive_model(function: str, use_await=False):
+async def simulate_workload_using_predictive_model(function: str, stopwatch: Stopwatch, use_await=False):
     """
     This function sleeps for the amount of time predicted
     by a predictive model.
@@ -286,28 +286,42 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
 
     total_sleep_time = 0
 
+    elapsed_time_seconds = stopwatch.duration
     sleep_time_to_use = predict_sleep_time(predictive_model, tid, function)
-    logger.debug(f"--> {function}: Waiting for {sleep_time_to_use}")
-    if use_await:
-        await asyncio.sleep(sleep_time_to_use)
-    else:
-        sleep(sleep_time_to_use)
-    total_sleep_time += sleep_time_to_use
+    logger.debug(f"--> UID: {tid}, {function}: Elapsed time: {elapsed_time_seconds}s")
+    logger.debug(f"--> UID: {tid}, {function}: Predicted processing time: {sleep_time_to_use}s")
+    sleep_time_to_use -= elapsed_time_seconds
+    sleep_time_to_use = max(0, sleep_time_to_use)
 
-    # while True:
-    for i in range(1):
-        sleep_time_test = predict_sleep_time(predictive_model, tid, function)
-        if sleep_time_test <= total_sleep_time:
-            break
-        else:
-            sleep_time_to_use = sleep_time_test - total_sleep_time
-
-        logger.debug(f"---> {function}: Waiting for {sleep_time_to_use}")
+    if sleep_time_to_use > 0:
+        logger.debug(f"--> UID: {tid}, {function}: Waiting for {sleep_time_to_use}")
         if use_await:
             await asyncio.sleep(sleep_time_to_use)
         else:
             sleep(sleep_time_to_use)
         total_sleep_time += sleep_time_to_use
+
+        # while True:
+        for i in range(1):
+            elapsed_time_seconds = stopwatch.duration
+
+            sleep_time_test = predict_sleep_time(predictive_model, tid, function)
+            logger.debug(f"--> UID: {tid}, {function}: Elapsed time: {elapsed_time_seconds}s")
+            logger.debug(f"--> UID: {tid}, {function}: Predicted processing time: {sleep_time_test}s")
+            sleep_time_test -= elapsed_time_seconds
+            sleep_time_to_use = max(0, sleep_time_test)
+
+            if sleep_time_to_use > 0:
+                logger.debug(f"--> UID: {tid}, {function}: Waiting for {sleep_time_to_use}")
+                if use_await:
+                    await asyncio.sleep(sleep_time_to_use)
+                else:
+                    sleep(sleep_time_to_use)
+                total_sleep_time += sleep_time_to_use
+            else:
+                break
+    else:
+        logger.debug(f"--> UID: {tid}, {function}: Skip waiting")
 
     with pr_lock:
         number_of_parallel_requests_pending -= 1
@@ -319,7 +333,7 @@ async def simulate_workload_using_predictive_model(function: str, use_await=Fals
             cmd["parallelCommandsFinished"] = cmd["parallelCommandsFinished"] + 1
 
     # logger.debug(startedCommands)
-    logger.info(f"<-- ID:{tid} Total Predicted Processing Time: {total_sleep_time}")
+    logger.info(f"<-- UID: {tid}, {function}: Total Predicted Processing Time: {total_sleep_time}")
 
     return True
 
@@ -403,6 +417,8 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         request_id = request_headers.get('Request-Id')
 
+        stopwatch = Stopwatch()
+
         logger.info("-----> [%s] CMD-START: %s -----", request_id, cmd_name)
 
         # logger.debug("Content Length: %s", length)
@@ -413,19 +429,18 @@ class RequestHandler(BaseHTTPRequestHandler):
             # logger.warning("System faulted for {} s".format(chosen_fault_time))
             is_successful = False
         else:
-            stopwatch = Stopwatch()
-
             if MASCOTS2020:
                 is_successful = simulate_minimal_workload()
             else:
                 # is_successful = simulate_workload_random(cmd_name)
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                is_successful = simulate_workload_using_predictive_model(cmd_name)
+                is_successful = simulate_workload_using_predictive_model(cmd_name, stopwatch)
                 loop.run_until_complete(is_successful)
                 loop.close()
-            stopwatch.stop()
-            logger.info("[%s] Request execution time: %s", request_id, stopwatch)
+
+        stopwatch.stop()
+        logger.info("[%s] Request execution time: %s", request_id, stopwatch)
 
         logger.info("<----- [%s] CMD-ENDE: %s -----", request_id, cmd_name)
 
@@ -462,7 +477,7 @@ async def app(scope, receive, send):
 
     stopwatch = Stopwatch()
 
-    is_successful = await simulate_workload_using_predictive_model(cmd_name, use_await=True)
+    is_successful = await simulate_workload_using_predictive_model(cmd_name, stopwatch, use_await=True)
     stopwatch.stop()
     logger.info("Request execution time: %s", stopwatch)
 
