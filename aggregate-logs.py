@@ -4,7 +4,7 @@ from pathlib import Path
 results = []
 
 if __name__ == "__main__":
-    for path in Path('locust-logs').rglob('locust-parameter-variation.log'):
+    for path in Path('locust-parameter-variation-logs-epew2023').rglob('v1*.log'):
         print(path)
 
         with open(path, 'r') as file_obj:
