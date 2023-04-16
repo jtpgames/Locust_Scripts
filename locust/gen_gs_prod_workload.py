@@ -1,15 +1,12 @@
 #!/usr/bin/env python
-import json
-import logging
 import random
 import re
 from datetime import datetime
 from glob import glob
 from re import search
 
-from locust import task, between, User, constant, LoadTestShape
-
-from common.common_locust import RepeatingHttpClient
+from locust import task, constant, LoadTestShape
+from locust.contrib.fasthttp import FastHttpUser
 
 
 def contains_timestamp_with_ms(line: str):
@@ -87,12 +84,12 @@ class RealWorkloadShape(LoadTestShape):
         # return avg_requests_per_second, avg_requests_per_second
 
 
-class RepeatingHttpLocust(User):
-    abstract = True
-
-    def __init__(self, *args, **kwargs):
-        super(RepeatingHttpLocust, self).__init__(*args, **kwargs)
-        self.client = RepeatingHttpClient(self.host, self)
+# class RepeatingHttpLocust(User):
+#     abstract = True
+#
+#     def __init__(self, *args, **kwargs):
+#         super(RepeatingHttpLocust, self).__init__(*args, **kwargs)
+#         self.client = RepeatingHttpClient(self.host, self)
 
 
 requests = set()
@@ -107,7 +104,7 @@ with open("GS Production Workload/All_Request_Names.log") as logfile:
 requests = tuple(requests)
 
 
-class LoadGenerator(RepeatingHttpLocust):
+class LoadGenerator(FastHttpUser):
     """
     Generates the workload that occurs independently of alarm devices.
     This workload consists of requests that are executed by other components of the legacy system.
@@ -123,7 +120,7 @@ class LoadGenerator(RepeatingHttpLocust):
     def do_request(self):
         cmd_to_use = random.choice(requests)
 
-        self.client.send(f"/{cmd_to_use}")
+        self.client.post(f"/{cmd_to_use}")
 
     @task(1)
     def execute_request(self):
