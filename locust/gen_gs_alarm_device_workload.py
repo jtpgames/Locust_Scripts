@@ -4,7 +4,7 @@ import random
 
 from locust import task, between, User, constant
 
-from common.common_locust import RepeatingHttpClient
+from common.common_locust import RepeatingHttpClient, RepeatingHttpxClient
 
 
 class RepeatingHttpLocust(User):
@@ -12,7 +12,7 @@ class RepeatingHttpLocust(User):
 
     def __init__(self, *args, **kwargs):
         super(RepeatingHttpLocust, self).__init__(*args, **kwargs)
-        self.client = RepeatingHttpClient(self.host, self)
+        self.client = RepeatingHttpxClient(self.host, self)
 
 
 # initialize the random seed value to get reproducible random sequences
@@ -25,10 +25,13 @@ class AlarmDevice(RepeatingHttpLocust):
     """
 
     # Wait time between 20 sec (SP6 devices) and 90 sec (DP4 devices) according to EN 50136-1
-    wait_time = between(20, 90)
-    # wait_time = constant(1)
+    # wait_time = between(20, 90)
+    # Use most demanding frequency of the EN 50136-1 standard
+    wait_time = constant(20)
 
-    is_first_alarm = True
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.is_first_alarm = True
 
     def send_alarm(self):
         if self.is_first_alarm:

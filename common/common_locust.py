@@ -6,6 +6,7 @@ import requests
 from locust import events, User
 
 from stopwatch import Stopwatch
+from httpx import Client, Limits
 
 
 class RepeatingClient(ABC):
@@ -67,15 +68,34 @@ class RepeatingClient(ABC):
 
 
 class RepeatingHttpClient(RepeatingClient):
-    def send_impl(self, url, data=None, request_id=uuid1().int) -> (object, bool):
-        logger = logging.getLogger('RepeatingHttpClient')
+    REQUEST_TIMEOUT = 60
+    LOGGER = logging.getLogger('RepeatingHttpClient')
 
-        logger.info("POST")
-        if data is not None:
-            response = requests.post(url, json=data, headers={"Request-Id": str(request_id)}, timeout=30)
-        else:
-            response = requests.post(url, headers={"Request-Id": str(request_id)}, timeout=30)
-        logger.info("Response: %s", response.status_code)
+    def send_impl(self, url, data=None, request_id=uuid1().int) -> (object, bool):
+        RepeatingHttpClient.LOGGER.info("POST")
+        response = requests.post(url, json=data, headers={"Request-Id": str(request_id)}, timeout=RepeatingHttpClient.REQUEST_TIMEOUT)
+        RepeatingHttpClient.LOGGER.info("Response: %s", response.status_code)
+
+        successfully_sent = 200 <= response.status_code < 300
+
+        return response, successfully_sent
+
+
+class RepeatingHttpxClient(RepeatingClient):
+    REQUEST_TIMEOUT = 60
+    LOGGER = logging.getLogger('RepeatingHttpxClient')
+    HTTP_POOL_LIMITS = Limits(max_connections=50000, max_keepalive_connections=1000)
+    CLIENT = Client(http2=True, limits=HTTP_POOL_LIMITS)
+
+    def __init__(self, base_url: str, parent_user: User):
+        super().__init__(base_url, parent_user)
+
+    def send_impl(self, url, data=None, request_id=uuid1().int) -> (object, bool):
+        RepeatingHttpxClient.LOGGER.info("POST")
+        headers = {"Request-Id": f"{request_id}"}
+        response = RepeatingHttpxClient.CLIENT.post(url, json=data, headers=headers, timeout=RepeatingHttpxClient.REQUEST_TIMEOUT)
+        RepeatingHttpxClient.LOGGER.info("Response: %s", response.status_code)
+        RepeatingHttpxClient.LOGGER.info("HTTP version: %s", response.http_version)
 
         successfully_sent = 200 <= response.status_code < 300
 
