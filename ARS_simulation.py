@@ -250,6 +250,8 @@ startedCommands = {}
 if MASCOTS2022:
     predictive_model = load("Models/gs_model_prod_workload_mascots2022.joblib")
     known_request_types = load("Models/gs_requests_mapping_prod_workload_mascots2022.joblib")
+
+    logger.debug(type(predictive_model))
 else:
     # predictive_model = load("Models/gs_model_LR_03-11-2022.joblib")
     # known_request_types = load("Models/gs_requests_mapping_03-11-2022.joblib")
@@ -257,6 +259,8 @@ else:
     predictive_model = load("Models/gs_model_DT_18-03-2023.joblib")
     with open("Models/gs_requests_mapping_18-03-2023.json") as mapping_file:
         known_request_types = json.load(mapping_file)
+
+    logger.debug(type(predictive_model))
 
 
 async def simulate_workload_using_predictive_model(function: str, stopwatch: Stopwatch, use_await=False):
@@ -357,25 +361,26 @@ def predict_sleep_time(model, tid, command):
     #            1]) \
     #     .reshape(1, -1)
 
-    # X = numpy.reshape(
-    #     [startedCommands[tid]["parallelCommandsStart"],
-    #      startedCommands[tid]["parallelCommandsFinished"],
-    #      request_type_as_int],
-    #     (1, -1)
-    # )
+    if MASCOTS2022:
+        X = numpy.reshape(
+            [startedCommands[tid]["parallelCommandsStart"],
+             startedCommands[tid]["parallelCommandsFinished"],
+             request_type_as_int],
+            (1, -1)
+        )
 
-    # changed order to comply with model
-    X = numpy.reshape(
-        [request_type_as_int,
-         startedCommands[tid]["parallelCommandsStart"],
-         startedCommands[tid]["parallelCommandsFinished"]],
-        (1, -1)
-    )
+        Xframe = pandas.DataFrame(X, columns=['PR 1', 'PR 3', 'Request Type'])
+    else:
+        # changed order to comply with model
+        X = numpy.reshape(
+            [request_type_as_int,
+             startedCommands[tid]["parallelCommandsStart"],
+             startedCommands[tid]["parallelCommandsFinished"]],
+            (1, -1)
+        )
 
-    # Xframe = pandas.DataFrame(X, columns=['PR 1', 'PR 3', 'Request Type'])
-
-    # changed column names to comply with model
-    Xframe = pandas.DataFrame(X, columns=['cmd', 'pr_1', 'pr_3'])
+        # changed column names to comply with model
+        Xframe = pandas.DataFrame(X, columns=['cmd', 'pr_1', 'pr_3'])
 
     logger.debug(f"-> X: {X} -")
     y = model.predict(Xframe)
