@@ -202,6 +202,8 @@ else:
     plt.xlabel('Number of alarm devices')
     plt.ylabel('Response time in s')
     plt.legend(loc='upper left')
+    plt.yscale('log')
+    plt.ylim(0.001, 1000)
     plt.savefig('Response_times.pdf')
     # plt.grid()
 
