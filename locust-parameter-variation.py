@@ -129,10 +129,10 @@ def parameter_variation_loop(multiplier: int = 5000):
         # start with multiplier clients, then increase linearly (2*multiplier, ... x*multiplier)
         # until the number of clients exceeds the threshold. 
         # After that, keep increasing with one tenth of the multiplier (x*multiplier + y*multiplier/10)
-        num_clients = max(x * multiplier + y * int(multiplier / 10) + z * 100, 1)
-        if num_clients >= 41000:
+        num_clients = max(x * multiplier + y * int(multiplier / 10) + z * 10, 1)
+        if num_clients >= 1500:
             z += 1
-        elif num_clients >= 40000:
+        elif num_clients >= 1200:
             y += 1
         else:
             x += 1
@@ -152,7 +152,7 @@ def read_cli_args():
     parser.add_argument('-m', '--multiplier',
                         type=int,
                         help='start and linearly increase number of clients by the given multiplier',
-                        default=5000)
+                        default=200)
     parser.add_argument('-u', '--url', help='URL of the System under Test')
 
     global input_args
