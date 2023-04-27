@@ -1,5 +1,6 @@
 from mininet.topo import Topo
 from mininet.cli import CLI
+from mininet.log import lg, info
 
 import time
 
@@ -32,11 +33,11 @@ class SimpleTopo( Topo ):
         #linkopts = {'delay':'10ms' }
         #self.addLink( apSwitch, alarm_receiving_centre, **linkopts )
         
-        self.addLink( alarm_system, customerSwitch) 
-        self.addLink( customerSwitch, apSwitch)
-        self.addLink( apSwitch, alarm_receiving_centre)
+        # self.addLink( alarm_system, customerSwitch) 
+        # self.addLink( customerSwitch, apSwitch)
+        # self.addLink( apSwitch, alarm_receiving_centre)
 
-        return
+        # return
         # --
         
         # Simulate production system
@@ -49,7 +50,8 @@ class SimpleTopo( Topo ):
         self.addLink( customerSwitch, ispCustomerSwitch, **linkopts )
         
         # ISP Interlink (10 GbE connection) 
-        linkopts = {'bw':10000, 'delay':'13.3ms', 'jitter': '3.15ms' }
+        # 1 Gigabit is the maximum bandwidth allowed by mininet
+        linkopts = {'bw':1000, 'delay':'13.3ms', 'jitter': '3.15ms' }
         self.addLink( ispCustomerSwitch, ispAPSwitch, **linkopts )
         
         # alarm provider sadly does NOT have SDSL, rather LACP-based Uplinks: VDSL100, VDSL50 combined
@@ -57,7 +59,8 @@ class SimpleTopo( Topo ):
         self.addLink( ispAPSwitch, apSwitch, **linkopts )
 
         # alarm provider has 2 GbE connection to his router
-        linkopts = {'bw':2000, 'delay':'0.19ms', 'jitter': '0.06ms' }
+        # 1 Gigabit is the maximum bandwidth allowed by mininet
+        linkopts = {'bw':1000, 'delay':'0.19ms', 'jitter': '0.06ms' }
         self.addLink( apSwitch, alarm_receiving_centre, **linkopts )
 
 
@@ -69,7 +72,7 @@ def setup_python_on_host(host):
         return
 
     host.cmd('cd ../')
-    print("ARC: Current Working Directory:")
+    print("{}: Current Working Directory:".format(host))
     host.cmdPrint('pwd')
     host.cmd('alias python=venv/bin/python')
     host.cmd('alias python3=venv/bin/python3')
@@ -101,8 +104,11 @@ def start_ARS(net):
     time.sleep(5)
     
     print("ARC: Starting ARS.")
-    arc.cmd('python ARS_simulation.py &> mininet/ars.out &')
-
+    # arc.cmd('python ARS_simulation.py &> mininet/ars.out &')
+    arc.cmd('cd ../Simulators')
+    print("ARC: Current Working Directory:")
+    arc.cmdPrint('pwd')
+    arc.cmdPrint('java -jar build/libs/Rast-Simulator-all.jar &> /dev/null &')
 
 def startprodworkload(self, args):
     """Starts a locust test simulating the production workload"""
@@ -162,9 +168,10 @@ def stop_workloads(self, args):
     h_as.cmd('killall locust')
 
 def LocustTest(net):
-    
+    lg.setLogLevel( 'info')    
+
     start_ARS(net)
-    time.sleep(2)
+    time.sleep(5)
     start_production_workload(net)
     time.sleep(1)
     start_alarm_system_workload(net)
