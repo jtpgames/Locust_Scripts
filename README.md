@@ -1,8 +1,20 @@
+# Automated Estimator Pipeline (In Review: EPEW 2023)
+**Last change from: 07.05.2023**
+
+In our publication at EPEW 2023 (currently in Review) we introduce improvements to our RAST approach, 
+in particular, the improvements to the training process. In the RAST approach, 
+the following components are of particular interest to the training process:
+* Log Transformer
+* Predictive Model Creator
+
+The [Automated Estimator Pipline](https://github.com/jtpgames/Automated-Estimator-Pipeline) by Adrian Liermann is 
+an implementation of these components wrapped in a CLI tool.
+
 # RAST Simulator and Load Tester Components (MASCOTS 2022)
 
 **Last change from: 31.10.2022**
 
-In our latest publication at MASCOTS 2022 (TODO: link), we explain our extension of this project.
+In our [latest publication at MASCOTS 2022](https://www.doi.org/10.1109/MASCOTS56607.2022.00015), we explain our extension of this project.
 * We provide a regression model learned from log files using our RAST approach;
 * we improved the Simulator so that it uses the regression model to simulate processing times of the System-Under-Evaluation (SUE);
 * we built a [mininet](http://mininet.org/) topology to ease the process of reproducibly launching experiments. 
