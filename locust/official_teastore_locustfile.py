@@ -53,6 +53,7 @@ add_to_cart_requests_counter = 0
 buy_requests_counter = 0
 
 stop_executing_users = False
+is_warmup_finished = not WITH_WARMUP_PHASE
 
 
 def reset_teastore_logs(environment: Environment):
@@ -147,7 +148,7 @@ class StagesShape(LoadTestShape):
                 self._stages.append({"duration": time, "users": rps, "spawn_rate": 100})
 
     def start_regular_load_profile(self):
-        global total_requests_counter, buy_requests_counter
+        global total_requests_counter, buy_requests_counter, is_warmup_finished
 
         logging.info(f"Warm-Up finished after sending {total_requests_counter} requests. Regular load profile starts.")
 
@@ -161,6 +162,7 @@ class StagesShape(LoadTestShape):
         buy_requests_counter = 0
 
         self._is_warming_up = False
+        is_warmup_finished = True
 
     def tick(self):
         if not self._use_load_test_shape:
@@ -282,7 +284,8 @@ class UserBehavior(FastHttpUser):
                 self.visit_profile()
                 self.logout()
                 logging.debug(f"Completed user {self._user}.")
-                self.number_of_completed_workload_cycles += 1
+                if is_warmup_finished:
+                    self.number_of_completed_workload_cycles += 1
         except requests.exceptions.ConnectionError as e:
             logging.error(f"{e.request.url, str(e)}")
 
