@@ -1,14 +1,28 @@
-# Automated Estimator Pipeline (In Review: EPEW 2023)
-**Last change from: 07.05.2023**
+# Improved RAST Simulator and Load Tester Components (In Review: MASCOTS 2023)
+**Last change from: 03.06.2023**
 
-In our publication at EPEW 2023 (currently in Review) we introduce improvements to our RAST approach, 
-in particular, the improvements to the training process. In the RAST approach, 
+In our publication (currently in review at MASCOTS 2023), we explain, implement and evaluate improvements to the following components of RAST:
+* Predictive Model Creator,
+* Simulator,
+* Load Tester.
+
+For our evaluation, we use the [TeaStore benchmarking application](https://github.com/DescartesResearch/TeaStore).
+
+This repository contains the improved Load Tester 
+whereas the Simulator and the predictive models we created can be found in this (TODO: Add link) repository.
+
+# Automated Estimator Pipeline
+**Last change from: 03.06.2023**
+
+The [Automated Estimator Pipline](https://github.com/jtpgames/Automated-Estimator-Pipeline) by Adrian Liermann was developed as part of his master's thesis.
+In his thesis, he implements and evaluates improvements to our RAST approach, 
+in particular, improvements to the training process. 
+In the RAST approach, 
 the following components are of particular interest to the training process:
 * Log Transformer
 * Predictive Model Creator
 
-The [Automated Estimator Pipline](https://github.com/jtpgames/Automated-Estimator-Pipeline) by Adrian Liermann is 
-an implementation of these components wrapped in a CLI tool.
+The Automated Estimator Pipeline is an implementation of these improved components wrapped in a CLI tool.
 
 # RAST Simulator and Load Tester Components (MASCOTS 2022)
 
