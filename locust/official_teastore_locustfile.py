@@ -52,6 +52,7 @@ category_requests_counter = 0
 product_requests_counter = 0
 add_to_cart_requests_counter = 0
 buy_requests_counter = 0
+profile_requests_counter = 0
 
 stop_executing_users = False
 is_warmup_finished = not WITH_WARMUP_PHASE
@@ -89,7 +90,8 @@ def on_test_stop(environment: Environment, **kwargs):
                  f"{category_requests_counter} GET category requests, \n"
                  f"{product_requests_counter} GET product requests, \n"
                  f"{add_to_cart_requests_counter} POST add to cart requests, \n"
-                 f"{buy_requests_counter} POST buy requests.")
+                 f"{buy_requests_counter} POST buy requests, \n"
+                 f"{profile_requests_counter} GET profile requests.")
 
 
 @events.request_success.add_listener
@@ -425,6 +427,8 @@ class UserBehavior(FastHttpUser):
             logging.info("Visited profile page.")
         else:
             logging.error("Could not visit profile page.")
+        global profile_requests_counter
+        profile_requests_counter += 1
 
     def logout(self, with_wait=True) -> None:
         """
