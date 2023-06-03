@@ -44,6 +44,7 @@ logging.getLogger().setLevel(logging.INFO)
 locust_environment: Environment = None
 
 total_requests_counter = 0
+index_page_requests_counter = 0
 login_page_requests_counter = 0
 login_requests_counter = 0
 logout_requests_counter = 0
@@ -81,6 +82,7 @@ def on_test_start(environment: Environment, **kwargs):
 def on_test_stop(environment: Environment, **kwargs):
     logging.info(f"Test stopped with \n"
                  f"{total_requests_counter} total requests send, \n"
+                 f"{index_page_requests_counter} GET index requests, \n"
                  f"{login_page_requests_counter} GET login page requests, \n"
                  f"{login_requests_counter} POST login requests, \n"
                  f"{logout_requests_counter} POST login (logout) requests, \n"
@@ -307,6 +309,8 @@ class UserBehavior(FastHttpUser):
             logging.info("Loaded landing page.")
         else:
             logging.error(f"Could not load landing page: {res.status_code}")
+        global index_page_requests_counter
+        index_page_requests_counter += 1
 
     def login(self) -> None:
         """
