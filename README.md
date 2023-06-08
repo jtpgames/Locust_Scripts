@@ -10,10 +10,10 @@ For our evaluation, we use the [TeaStore benchmarking application](https://githu
 We created a [GitHub fork](https://github.com/jtpgames/TeaStore) and modified some parameters of their logging framework to create consistent logs especially for higher intensity workloads. 
 
 This repository contains the improved Load Tester 
-whereas the Simulator and the predictive models we created can be found in this (TODO: Add link) repository.
+whereas the Simulator and the predictive models we created can be found in [our Simulators repository](https://github.com/jtpgames/Simulators).
 The Automated Estimator Pipeline (see below) is one implementation of the remaining RAST components (including the Predictive Model Creator).
 
-Additional experimental results, including the Python scripts we use for similarity calculation, not published in our paper can be accessed in our [Datalore notebook](https://datalore.jetbrains.com/notebook/6K6VkECuLMtN5t5nSYg6WK/TVGp1egwDQlwI19astdVlM).
+Additional experimental results not published in our paper, including the Python scripts we use for similarity calculation, can be accessed in our [Datalore notebook](https://datalore.jetbrains.com/notebook/6K6VkECuLMtN5t5nSYg6WK/TVGp1egwDQlwI19astdVlM).
 
 # Automated Estimator Pipeline
 **Last change from: 03.06.2023**
