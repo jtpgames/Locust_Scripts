@@ -74,9 +74,10 @@ def setup_python_on_host(host):
     host.cmd('cd ../')
     print("{}: Current Working Directory:".format(host))
     host.cmdPrint('pwd')
-    host.cmd('alias python=venv/bin/python')
-    host.cmd('alias python3=venv/bin/python3')
-    host.cmd('alias locust=venv/bin/locust')
+    host.cmd('source activate_venv.sh')
+    # host.cmd('alias python=venv/bin/python')
+    # host.cmd('alias python3=venv/bin/python3')
+    # host.cmd('alias locust=venv/bin/locust')
     host.cmdPrint('python --version')
     host.cmdPrint('python3 --version')
     host.cmdPrint('locust --version')
@@ -104,11 +105,12 @@ def start_ARS(net):
     time.sleep(5)
     
     print("ARC: Starting ARS.")
-    # arc.cmd('python ARS_simulation.py &> mininet/ars.out &')
-    arc.cmd('cd ../Simulators')
-    print("ARC: Current Working Directory:")
-    arc.cmdPrint('pwd')
-    arc.cmdPrint('java -jar build/libs/Rast-Simulator-all.jar &> /dev/null &')
+    arc.cmd('python ARS_simulation.py &> mininet/ars.out &')
+    # arc.cmd('cd ../Simulators')
+    # print("ARC: Current Working Directory:")
+    # arc.cmdPrint('pwd')
+    # arc.cmdPrint('java -jar build/libs/Rast-Simulator-all.jar &> /dev/null &')
+
 
 def startprodworkload(self, args):
     """Starts a locust test simulating the production workload"""
@@ -168,7 +170,7 @@ def stop_workloads(self, args):
     h_as.cmd('killall locust')
 
 def LocustTest(net):
-    lg.setLogLevel( 'info')    
+    lg.setLogLevel( 'info')
 
     start_ARS(net)
     time.sleep(5)
