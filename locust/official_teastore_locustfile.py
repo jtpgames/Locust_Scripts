@@ -16,6 +16,7 @@
 
 import logging
 import os
+import re
 from datetime import timedelta
 from random import seed, Random
 
@@ -59,11 +60,42 @@ is_warmup_finished = not WITH_WARMUP_PHASE
 
 
 def reset_teastore_logs(environment: Environment):
-    logs_endpoint = environment.host.replace(":8080", ":8081")
+    host = environment.host
+    replace_portnumber = True
 
-    logging.info("Resetting teastore logs")
+    kieker_host = os.environ.get('KIEKER_HOST')
+    if kieker_host is not None:
+        kieker_host = str(kieker_host)
+        logging.info(f"KIEKER_HOST={kieker_host}")
+
+        # Define the pattern to match an IP address
+        ip_pattern = r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b"
+
+        # Find the first occurrence of an IP address in the URL
+        match = re.search(ip_pattern, host)
+
+        if match:
+            ip_address = match.group(0)
+            logging.info(f"Current IP: {ip_address}")
+
+            if ":" in kieker_host:
+                # Remove the existing port number because kieker_host specifies a port number
+                host = host.replace(":8080", "")
+                replace_portnumber = False
+            host = host.replace(ip_address, kieker_host)
+        else:
+            logging.warning("No IP address found.")
+
+    if replace_portnumber:
+        logs_endpoint = host.replace(":8080", ":8081")
+    else:
+        logs_endpoint = host
+
+    logs_endpoint = logs_endpoint + "/logs/reset"
+
+    logging.info(f"Resetting teastore logs. Endpoint: {logs_endpoint}")
     try:
-        response = requests.get(logs_endpoint + "/logs/reset")
+        response = requests.get(logs_endpoint)
         logging.info(f"{response.status_code} - {response.text}")
     except Exception as e:
         logging.warning(str(e))
