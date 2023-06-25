@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import subprocess
 from signal import SIGTERM
 from time import sleep
@@ -11,13 +12,14 @@ from mininet.node import OVSSwitch, RemoteController, Controller
 from mininet.cli import CLI
 from mininet.link import TCLink
 from mininet.topo import Topo
-from mininet.log import info, error, setLogLevel
+from mininet.log import info, error, setLogLevel, warning
 
 setLogLevel('info')
 
 python_configured_hosts = []
 pox_process: Optional[subprocess.Popen] = None
 pox_logfile: Optional[IO] = None
+POX_PLUGIN_NAME = "stats_per_second_collector"
 
 
 class SDNSwitch(OVSSwitch):
@@ -311,10 +313,41 @@ def setup_python_on_host(host):
     python_configured_hosts.append(host)
 
 
+def install_our_pox_plugin(force: bool):
+    mininet_dir = find_directory("mininet")
+    if mininet_dir is None:
+        raise RuntimeError("Could not find mininet directory")
+
+    plugin_file = mininet_dir + f"/{POX_PLUGIN_NAME}.py"
+    if not os.path.exists(plugin_file):
+        raise RuntimeError(f"POX plugin file {plugin_file} does not exist.")
+
+    pox_dir = find_directory("pox")
+    if pox_dir is None:
+        raise RuntimeError("Could not find pox directory")
+
+    ext_pox_dir = pox_dir + "/ext"
+    if not os.path.exists(ext_pox_dir):
+        raise RuntimeError(f"Something seems to be wrong with the POX installation. "
+                           f"The folder {ext_pox_dir} does not exist.")
+
+    # Check if the file already exists in the destination directory
+    destination_file = os.path.join(ext_pox_dir, f"{POX_PLUGIN_NAME}.py")
+    if force or not os.path.exists(destination_file):
+        info("*** Installing our POX plugin\n")
+        # Copy the plugin_file to ext_pox_dir
+        shutil.copy(plugin_file, ext_pox_dir, follow_symlinks=False)
+        info("File copied successfully.\n")
+    else:
+        warning("File already exists at the destination.\n")
+
+
 def start_pox():
     info("*** Starting POX Controller\n")
 
-    command = "./pox.py --verbose samples.pretty_log forwarding.l2_pairs ext.stats_per_second_collector"
+    install_our_pox_plugin(False)
+
+    command = f"./pox.py --verbose samples.pretty_log forwarding.l2_pairs ext.{POX_PLUGIN_NAME}"
 
     pox_dir = find_directory("pox")
     if pox_dir is None:
