@@ -1,5 +1,9 @@
 import os
+import re
+import subprocess
+from signal import SIGTERM
 from time import sleep
+from typing import Optional, IO
 
 from mininet.clean import cleanup
 from mininet.net import Containernet, Mininet
@@ -10,6 +14,10 @@ from mininet.topo import Topo
 from mininet.log import info, error, setLogLevel
 
 setLogLevel('info')
+
+python_configured_hosts = []
+pox_process: Optional[subprocess.Popen] = None
+pox_logfile: Optional[IO] = None
 
 
 class SDNSwitch(OVSSwitch):
@@ -41,13 +49,14 @@ class TeaStoreTopo(Topo):
         # Add hosts and switches
         locust_runner = self.addHost('h_runner')
 
-        # c1 = RemoteController('c1', ip='127.0.0.1', port=6633)
+        c1 = RemoteController('c1', ip='127.0.0.1', port=6633)
+        c1.checkListening()
 
         customerSwitch = self.addSwitch('s1')
         ispCustomerSwitch = self.addSwitch('s2')
         ispAPSwitch = self.addSwitch('s3')
-        # self.apSwitch = self.addSwitch('s4', cls=SDNSwitch, controller=c1)
-        self.apSwitch = self.addSwitch('s4')
+        self.apSwitch = self.addSwitch('s4', cls=SDNSwitch, controller=c1)
+        # self.apSwitch = self.addSwitch('s4')
 
         # Add links
 
@@ -261,19 +270,16 @@ class TeaStoreTopo(Topo):
         info('*** Now, you can start the load test\n')
 
 
-python_configured_hosts = []
-
-
-def find_venv_directory():
+def find_directory(directory_to_find: str):
     current_dir = os.getcwd()
 
-    venv_dir = os.path.join(current_dir, 'venv')
+    venv_dir = os.path.join(current_dir, directory_to_find)
     if os.path.isdir(venv_dir):
         return venv_dir
 
     while True:
         current_dir = os.path.dirname(current_dir)
-        venv_dir = os.path.join(current_dir, 'venv')
+        venv_dir = os.path.join(current_dir, directory_to_find)
 
         if os.path.isdir(venv_dir):
             return venv_dir
@@ -290,7 +296,7 @@ def setup_python_on_host(host):
     if host in python_configured_hosts:
         return
 
-    venv_dir = find_venv_directory()
+    venv_dir = find_directory("venv")
     if venv_dir is None:
         raise RuntimeError("Could not find venv directory")
 
@@ -306,9 +312,41 @@ def setup_python_on_host(host):
 
 
 def start_pox():
-    # ./pox.py --verbose samples.pretty_log forwarding.l2_pairs ext.stats_per_second_collector
+    info("*** Starting POX Controller\n")
 
-    pass
+    command = "./pox.py --verbose samples.pretty_log forwarding.l2_pairs ext.stats_per_second_collector"
+
+    pox_dir = find_directory("pox")
+    if pox_dir is None:
+        raise RuntimeError("Could not find pox directory")
+
+    global pox_process
+    global pox_logfile
+
+    output_file = os.getcwd() + "/pox_output.log"
+
+    # Open the file in append mode ('a')
+    # If the file exists, it will be opened for appending
+    # If the file doesn't exist, it will be created
+    pox_logfile = open(output_file, 'a')
+
+    # Close the file immediately without making any changes
+    pox_logfile.close()
+
+    pox_logfile = open(output_file, "r+")
+
+    pox_process = subprocess.Popen(
+        command,
+        cwd=pox_dir,
+        shell=True,
+        preexec_fn=os.setsid,
+        stdout=pox_logfile,
+        stderr=pox_logfile
+    )
+
+    info(f"Process: {pox_process.pid}\n")
+
+    sleep(1)
 
 
 def start_teastore_loadtest(net: Mininet):
@@ -350,10 +388,11 @@ def stop_workloads(self, args):
 
 
 try:
-    teastore_topo = TeaStoreTopo()
-    net = Containernet(topo=teastore_topo)
-    teastore_topo.add_tea_store_and_start_network(net)
+    start_pox()
 
+    teastore_topo = TeaStoreTopo()
+    net = Containernet(topo=teastore_topo, link=TCLink, autoSetMacs=True)
+    teastore_topo.add_tea_store_and_start_network(net)
     test_topology(net)
 
     start_teastore_loadtest(net)
@@ -362,9 +401,58 @@ try:
 
     info('*** Running CLI\n')
     CLI(net)
-    info('*** Stopping network')
+    info('*** Stopping network\n')
     net.stop()
 except Exception as e:
     error(e)
     cleanup()
     exit(-1)
+finally:
+    # Terminate the pox subprocess and its children
+    if pox_process is not None:
+        os.killpg(os.getpgid(pox_process.pid), SIGTERM)
+        pox_process.terminate()
+        sleep(1)
+    if pox_logfile is not None:
+        def remove_ansi_colors(text):
+            ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+            return ansi_escape.sub('', text)
+
+        while True:
+            try:
+                # Wait for any child process in the process group
+                pid, status = os.waitpid(-os.getpgid(pox_process.pid), 0)
+
+                # Check if all processes have finished
+                if pid == 0:
+                    break
+
+                # Process the exit status or perform any desired actions
+                print(pid, status)
+
+            except ChildProcessError:
+                # No more child processes in the process group
+                break
+            except ProcessLookupError:
+                break
+
+        pox_logfile.flush()
+
+        # Reset the file pointer to the beginning of the file
+        pox_logfile.seek(0)
+
+        # Read the log file
+        log_content = pox_logfile.read()
+
+        # Remove ANSI color sequences
+        clean_log_content = remove_ansi_colors(log_content)
+
+        # Reset the file pointer to the beginning of the file
+        pox_logfile.seek(0)
+
+        # Truncate the file to remove its current content
+        pox_logfile.truncate()
+
+        pox_logfile.write(clean_log_content)
+
+        pox_logfile.close()
