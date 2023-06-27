@@ -6,9 +6,10 @@ from signal import SIGTERM
 from time import sleep
 from typing import Optional, IO
 
+import typer
 from mininet.clean import cleanup
 from mininet.net import Containernet, Mininet
-from mininet.node import OVSSwitch, RemoteController, Controller
+from mininet.node import OVSSwitch, RemoteController, Controller, Host
 from mininet.cli import CLI
 from mininet.link import TCLink
 from mininet.topo import Topo
@@ -79,6 +80,39 @@ class TeaStoreTopo(Topo):
         # alarm provider sadly does NOT have SDSL, rather LACP-based Uplinks: VDSL100, VDSL50 combined
         linkopts = {'bw': 50, 'delay': '7.97ms', 'jitter': '2.9ms'}
         self.addLink(ispAPSwitch, self.apSwitch, **linkopts)
+
+    def add_teastore_simulation_and_start_network(self, net: Mininet):
+        info('*** Adding TeaStore Simulator host\n')
+
+        setLogLevel('debug')
+
+        teastore_simulator = net.addHost('h_sim')
+
+        info('*** Linking TeaStore docker containers\n')
+        # alarm provider has 2 GbE connection to his router
+        # 1 Gigabit is the maximum bandwidth allowed by mininet
+        linkopts = {'bw': 1000, 'delay': '0.19ms', 'jitter': '0.06ms'}
+        net.addLink(self.apSwitch, teastore_simulator, **linkopts)
+
+        net.configHosts()
+
+        info('*** Starting network\n')
+        net.start()
+
+        simulators_dir = find_directory("Simulators")
+        if simulators_dir is None:
+            raise RuntimeError("Could not find Simulators directory")
+
+        teastore_simulator.cmd(f'cd {simulators_dir}')
+        print("Simulator: Current Working Directory:")
+        teastore_simulator.cmdPrint('pwd')
+        teastore_simulator.cmdPrint('java -jar TeaStore/Rast-Simulator-0.2.0.jar &> /dev/null &')
+
+        setLogLevel('info')
+
+        info('*** Waiting 3 seconds for TeaStore Simulator to completely start\n')
+        sleep(3)
+        info('*** Now, you can start the load test\n')
 
     def add_tea_store_and_start_network(self, net: Containernet):
         info('*** Adding TeaStore docker containers\n')
@@ -267,8 +301,7 @@ class TeaStoreTopo(Topo):
         teastore_recommender.cmdPrint(teastore_base_cmd)
         teastore_webui.cmdPrint(teastore_base_cmd)
         info('*** Waiting 2 minutes for TeaStore to completely start\n')
-        # sleep(2*60)
-        sleep(10)
+        sleep(2*60)
         info('*** Now, you can start the load test\n')
 
 
@@ -379,6 +412,7 @@ def start_pox():
 
     info(f"Process: {pox_process.pid}\n")
 
+    info("Waiting 1 second for POX Controller to start\n")
     sleep(1)
 
 
@@ -400,8 +434,14 @@ def test_topology(net: Mininet):
     info('*** Testing topology\n')
 
     net.ping()
-    webui = net.get('webui')
-    h_runner = net.get('h_runner')
+    try:
+        webui: Host = net.get('webui')
+    except KeyError as e:
+        info('WebUI not found, looking for h_sim\n')
+        webui = net.get('h_sim')
+
+    assert webui is not None
+    h_runner: Host = net.get('h_runner')
 
     info('*** Testing TeaStore WebUI\n')
     h_runner.cmdPrint(f"curl {webui.IP()}:8080/tools.descartes.teastore.webui/status")
@@ -420,72 +460,81 @@ def stop_workloads(self, args):
     h_runner.cmd('killall locust')
 
 
-try:
-    start_pox()
+def main(use_simulation: bool = typer.Option(False, "--use-simulation", "-s")):
+    try:
+        start_pox()
 
-    teastore_topo = TeaStoreTopo()
-    net = Containernet(topo=teastore_topo, link=TCLink, autoSetMacs=True)
-    teastore_topo.add_tea_store_and_start_network(net)
-    test_topology(net)
+        teastore_topo = TeaStoreTopo()
+        net = Containernet(topo=teastore_topo, link=TCLink, autoSetMacs=True)
+        if use_simulation:
+            teastore_topo.add_teastore_simulation_and_start_network(net)
+        else:
+            teastore_topo.add_tea_store_and_start_network(net)
 
-    start_teastore_loadtest(net)
+        test_topology(net)
 
-    CLI.do_stopworkloads = stop_workloads
+        start_teastore_loadtest(net)
 
-    info('*** Running CLI\n')
-    CLI(net)
-    info('*** Stopping network\n')
-    net.stop()
-except Exception as e:
-    error(e)
-    cleanup()
-    exit(-1)
-finally:
-    # Terminate the pox subprocess and its children
-    if pox_process is not None:
-        os.killpg(os.getpgid(pox_process.pid), SIGTERM)
-        pox_process.terminate()
-        sleep(1)
-    if pox_logfile is not None:
-        def remove_ansi_colors(text):
-            ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-            return ansi_escape.sub('', text)
+        CLI.do_stopworkloads = stop_workloads
 
-        while True:
-            try:
-                # Wait for any child process in the process group
-                pid, status = os.waitpid(-os.getpgid(pox_process.pid), 0)
+        info('*** Running CLI\n')
+        CLI(net)
+        info('*** Stopping network\n')
+        net.stop()
+    except Exception as e:
+        error(e)
+        cleanup()
+        exit(-1)
+    finally:
+        # Terminate the pox subprocess and its children
+        if pox_process is not None:
+            os.killpg(os.getpgid(pox_process.pid), SIGTERM)
+            pox_process.terminate()
+            sleep(1)
+        if pox_logfile is not None:
+            def remove_ansi_colors(text):
+                ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+                return ansi_escape.sub('', text)
 
-                # Check if all processes have finished
-                if pid == 0:
+            while True:
+                try:
+                    # Wait for any child process in the process group
+                    pid, status = os.waitpid(-os.getpgid(pox_process.pid), 0)
+
+                    # Check if all processes have finished
+                    if pid == 0:
+                        break
+
+                    # Process the exit status or perform any desired actions
+                    print(pid, status)
+
+                except ChildProcessError:
+                    # No more child processes in the process group
+                    break
+                except ProcessLookupError:
                     break
 
-                # Process the exit status or perform any desired actions
-                print(pid, status)
+            pox_logfile.flush()
 
-            except ChildProcessError:
-                # No more child processes in the process group
-                break
-            except ProcessLookupError:
-                break
+            # Reset the file pointer to the beginning of the file
+            pox_logfile.seek(0)
 
-        pox_logfile.flush()
+            # Read the log file
+            log_content = pox_logfile.read()
 
-        # Reset the file pointer to the beginning of the file
-        pox_logfile.seek(0)
+            # Remove ANSI color sequences
+            clean_log_content = remove_ansi_colors(log_content)
 
-        # Read the log file
-        log_content = pox_logfile.read()
+            # Reset the file pointer to the beginning of the file
+            pox_logfile.seek(0)
 
-        # Remove ANSI color sequences
-        clean_log_content = remove_ansi_colors(log_content)
+            # Truncate the file to remove its current content
+            pox_logfile.truncate()
 
-        # Reset the file pointer to the beginning of the file
-        pox_logfile.seek(0)
+            pox_logfile.write(clean_log_content)
 
-        # Truncate the file to remove its current content
-        pox_logfile.truncate()
+            pox_logfile.close()
 
-        pox_logfile.write(clean_log_content)
 
-        pox_logfile.close()
+if __name__ == "__main__":
+    typer.run(main)
