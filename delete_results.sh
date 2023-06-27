@@ -8,3 +8,5 @@ rm teastore-cmd_simulation*.log -fv
 rm *.sar -fv
 rm *.svg -fv
 rm *.out -fv
+rm pox_output.log -fv
+rm Simulators/teastore_simulation*.log -fv
