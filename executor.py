@@ -140,13 +140,27 @@ def main(
                             level=os.environ.get("LOGLEVEL", "INFO"),
                             handlers=[fh])
 
-    call_locust_with(locust_script, url, num_clients, runtime, silent)
+    pipe_name = "/tmp/locust_executor_pipe"
+    if not os.path.exists(pipe_name):
+        os.mkfifo(pipe_name)
 
-    if silent is False:
-        read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv")
+    pipe_fd = os.open(pipe_name, os.O_WRONLY)
+    try:
+        load_intensity_profile_env = os.environ.get('LOAD_INTENSITY_PROFILE')
+        if load_intensity_profile_env is not None:
+            os.write(pipe_fd, str(load_intensity_profile_env).encode())
 
-    if "teastore" in locust_script:
-        analyse_teastore_response_times()
+        call_locust_with(locust_script, url, num_clients, runtime, silent)
+
+        if silent is False:
+            read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv")
+
+        if "teastore" in locust_script:
+            analyse_teastore_response_times()
+
+        os.write(pipe_fd, "FIN".encode())
+    finally:
+        os.close(pipe_fd)
 
 
 if __name__ == "__main__":

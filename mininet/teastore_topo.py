@@ -1,7 +1,9 @@
+import asyncio
 import os
 import re
 import shutil
 import subprocess
+import threading
 from signal import SIGTERM
 from time import sleep
 from typing import Optional, IO
@@ -21,6 +23,12 @@ python_configured_hosts = []
 pox_process: Optional[subprocess.Popen] = None
 pox_logfile: Optional[IO] = None
 POX_PLUGIN_NAME = "stats_per_second_collector"
+
+CLI_ARGS = {}
+
+current_load_intensity_profile_index = 0
+
+load_intensity_profiles = ["LOW", "LOW_2", "MED", "HIGH"]
 
 
 class SDNSwitch(OVSSwitch):
@@ -293,8 +301,8 @@ class TeaStoreTopo(Topo):
         teastore_kieker.cmdPrint(teastore_kieker_cmd)
         teastore_registry.cmdPrint(teastore_base_cmd)
         teastore_db.cmdPrint("docker-entrypoint.sh mysqld &")
-        info('*** Waiting 10 seconds for RabbitMQ, Registry and MariaDb to start\n')
-        sleep(10)
+        info('*** Waiting 30 seconds for RabbitMQ, Registry and MariaDb to start\n')
+        sleep(30)
         teastore_persistence.cmdPrint(teastore_base_cmd)
         teastore_auth.cmdPrint(teastore_base_cmd)
         teastore_image.cmdPrint(teastore_base_cmd)
@@ -380,7 +388,8 @@ def start_pox():
 
     install_our_pox_plugin(False)
 
-    command = f"./pox.py --verbose samples.pretty_log forwarding.l2_pairs ext.{POX_PLUGIN_NAME}"
+    statistics_file = os.getcwd() + "/switch_flow_stats.json"
+    command = f'./pox.py --verbose samples.pretty_log forwarding.l2_pairs ext.{POX_PLUGIN_NAME} --file="{statistics_file}"'
 
     pox_dir = find_directory("pox")
     if pox_dir is None:
@@ -416,18 +425,37 @@ def start_pox():
     sleep(1)
 
 
-def start_teastore_loadtest(net: Mininet):
+def start_teastore_loadtest(net: Mininet, load_intensity_profile):
+    info('*** Starting TeaStore Workload ...\n')
+
     h_runner = net.get('h_runner')
-    webui = net.get('webui')
+    try:
+        webui: Host = net.get('webui')
+    except KeyError as e:
+        info('WebUI not found, looking for h_sim\n')
+        webui = net.get('h_sim')
+
+    assert webui is not None
+
+    if webui.shell is None:
+        warning('Shell is None. Aborting\n')
+        return
 
     setup_python_on_host(h_runner)
 
+    handle_thread = threading.Thread(target=read_and_handle_locust_executor_pipe_messages, kwargs={'net': net})
+    handle_thread.start()
+
+    if CLI_ARGS["run_all_load_intensity_profiles"]:
+        h_runner.cmdPrint(f"export KEEP_TEASTORE_LOGS=True")
+    h_runner.cmdPrint(f"export LOAD_INTENSITY_PROFILE={load_intensity_profile}")
+
     cmd = f'./start_teastore_loadtest.sh --ip {webui.IP()}'
-    info('*** Starting TeaStore Workload ...\n')
     info(f'{cmd}\n')
 
     cmd_output = h_runner.cmd("{} &> /dev/null &".format(cmd))
     info(cmd_output)
+    info('*** TeaStore Workload is running ...\n')
 
 
 def test_topology(net: Mininet):
@@ -460,7 +488,54 @@ def stop_workloads(self, args):
     h_runner.cmd('killall locust')
 
 
-def main(use_simulation: bool = typer.Option(False, "--use-simulation", "-s")):
+def read_from_pipe_until_finish(pipe_path):
+    pipe_fd = os.open(pipe_path, os.O_RDONLY)
+    while True:
+        line = os.read(pipe_fd, 1024)
+        if not line:
+            break
+        line = line.decode()
+        info(f"*** Received: {line}\n")
+
+        if line == "FIN":
+            break
+
+    info(f"*** Named Pipe closed \n")
+    os.close(pipe_fd)
+
+
+def read_and_handle_locust_executor_pipe_messages(**kwargs):
+    net: Mininet = kwargs.get('net')
+
+    pipe_name = "/tmp/locust_executor_pipe"
+    if not os.path.exists(pipe_name):
+        os.mkfifo(pipe_name)
+
+    read_from_pipe_until_finish(pipe_name)
+
+    if CLI_ARGS["run_all_load_intensity_profiles"]:
+        global current_load_intensity_profile_index
+        current_load_intensity_profile_index += 1
+        if current_load_intensity_profile_index < len(load_intensity_profiles):
+            start_teastore_loadtest(net, load_intensity_profiles[current_load_intensity_profile_index])
+            return
+
+    info('*** All load intensity profiles have been executed\n')
+    info('******* Remember to download the logfiles before exiting mininet *******\n')
+
+    if CLI_ARGS["use_simulation"]:
+        info('*** You can find the teastore_simulation.log file in the Simulators folder\n')
+    else:
+        info('*** Navigate to http://localhost:8081/logs/index to download them\n')
+
+
+def main(
+        use_simulation: bool = typer.Option(False, "--use-simulation", "-s"),
+        run_all_load_intensity_profiles: bool = typer.Option(False, "--run_all_load_intensity_profiles", "-a")
+):
+    global CLI_ARGS
+    CLI_ARGS = {"use_simulation": use_simulation, "run_all_load_intensity_profiles": run_all_load_intensity_profiles}
+
     try:
         start_pox()
 
@@ -473,7 +548,11 @@ def main(use_simulation: bool = typer.Option(False, "--use-simulation", "-s")):
 
         test_topology(net)
 
-        start_teastore_loadtest(net)
+        global current_load_intensity_profile_index
+        if run_all_load_intensity_profiles:
+            current_load_intensity_profile_index = 0
+
+        start_teastore_loadtest(net, load_intensity_profiles[current_load_intensity_profile_index])
 
         CLI.do_stopworkloads = stop_workloads
 
@@ -490,7 +569,7 @@ def main(use_simulation: bool = typer.Option(False, "--use-simulation", "-s")):
         if pox_process is not None:
             os.killpg(os.getpgid(pox_process.pid), SIGTERM)
             pox_process.terminate()
-            sleep(1)
+            sleep(2)
         if pox_logfile is not None:
             def remove_ansi_colors(text):
                 ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
