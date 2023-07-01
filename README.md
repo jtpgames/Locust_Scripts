@@ -19,7 +19,7 @@ Additional experimental results not published in our paper, including the Python
 To conduct the experiments outlined in this paper, please follow the step-by-step instructions below:
 
 Preparations:
-* Clone our [TeaStore Fork](https://github.com/jtpgames/TeaStore)k repository to your local machine.
+* Clone our [TeaStore Fork](https://github.com/jtpgames/TeaStore) repository to your local machine.
 * Build the TeaStore application and the associated Docker images by following the instructions provided by the developers. 
   You can find these instructions in the GET_STARTED.md file within the cloned repository.
 * Clone our [Simulators repository](https://github.com/jtpgames/Simulators) to your local machine.
@@ -51,9 +51,7 @@ Recommended workflow (for terminal users):
    Look for the line `with open("locust/increasingLowIntensity.csv") as intensityFile:`. 
    Comment out this line and uncomment the line corresponding to your desired load intensity profile.
 6. To modify the predictive model,
-   navigate to Session (4) and locate the `Predictor` constructor call. 
-   Change the name of the model and request types mapping.
-   You can find the available models and mappings in the following folder: `<your_local_simulators_folder>/src/main/resources`.
+   navigate to Session (4) and follow the instructions in the README.md file within the Simulators repository.
 
 
 # Automated Estimator Pipeline
