@@ -11,6 +11,7 @@
 # * Reset the logfiles of teastore before starting the test.
 # * Additional logging for better insight and postprocessing of the measured response times.
 # * Consistent randomness by working with fixed seeds.
+# * Consistent amount of requests sent between subsequent load tests when using the same load intensity profile.
 # * Removed random user logins
 # * Minor refactoring and quality of life improvements like sending a unique request-id.
 
@@ -19,6 +20,8 @@ import os
 import re
 from datetime import timedelta
 from random import seed, Random
+
+from enum import Enum
 
 import csv
 from uuid import uuid1
@@ -38,7 +41,7 @@ USE_BUY_PROFILE = False
 # to warm up the JVM as much as possible (default Tier4Threshold)
 WITH_WARMUP_PHASE = False
 
-# logging
+# set root logger level
 logging.getLogger().setLevel(logging.INFO)
 
 # noinspection PyTypeChecker
@@ -62,6 +65,14 @@ is_warmup_finished = not WITH_WARMUP_PHASE
 def reset_teastore_logs(environment: Environment):
     host = environment.host
     replace_portnumber = True
+
+    if is_warmup_finished:
+        keep_teastore_logs = os.environ.get('KEEP_TEASTORE_LOGS')
+        if keep_teastore_logs is not None:
+            keep_teastore_logs = eval(keep_teastore_logs)
+            if keep_teastore_logs:
+                logging.info(f"Keeping teastore logs.")
+                return
 
     kieker_host = os.environ.get('KIEKER_HOST')
     if kieker_host is not None:
@@ -142,6 +153,13 @@ def my_failure_handler(request_type, name, response_time, response_length, excep
     logging.error(f"{request_type} {name} failed", response_time)
 
 
+class LoadIntensityProfile(Enum):
+    LOW = "locust/increasingLowIntensity.csv"
+    LOW_2 = "locust/increasingLow2Intensity.csv"
+    MED = "locust/increasingMedIntensity.csv"
+    HIGH = "locust/increasingHighIntensity.csv"
+
+
 class StagesShape(LoadTestShape):
     """
     A simple load test shape class that has different user and spawn_rate at
@@ -169,10 +187,18 @@ class StagesShape(LoadTestShape):
             logging.info("Load test shape deactivated by environment variable 'use_load_test_shape'")
             return
 
-        with open("locust/increasingLowIntensity.csv") as intensityFile:
-        # with open("locust/increasingLow2Intensity.csv") as intensityFile:
-        # with open("locust/increasingMedIntensity.csv") as intensityFile:
-        # with open("locust/increasingHighIntensity.csv") as intensityFile:
+        load_intensity_profile: LoadIntensityProfile = LoadIntensityProfile.LOW
+
+        load_intensity_profile_env = os.environ.get('LOAD_INTENSITY_PROFILE')
+        if load_intensity_profile_env is not None:
+            load_intensity_str = str(load_intensity_profile_env)
+            logging.info(f"LOAD_INTENSITY_PROFILE={load_intensity_str}")
+
+            load_intensity_profile = getattr(LoadIntensityProfile, load_intensity_str.upper())
+
+        logging.info(f"Using {load_intensity_profile} load intensity profile")
+
+        with open(load_intensity_profile.value) as intensityFile:
             reader = csv.DictReader(intensityFile, ['time', 'rps'])
             for row in reader:
                 time = float(row['time'])
