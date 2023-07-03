@@ -4,6 +4,7 @@ import re
 import shutil
 import subprocess
 import threading
+from datetime import datetime
 from signal import SIGTERM
 from time import sleep
 from typing import Optional, IO
@@ -159,7 +160,7 @@ class TeaStoreTopo(Topo):
 
         dockermemoryconfigurator = "java -jar /usr/local/tomcat/bin/dockermemoryconfigurator.jar ${TOMCAT_HEAP_MEM_PERCENTAGE};"
         start_local_tomcat = "/usr/local/tomcat/bin/start.sh"
-        start_catalina = "/usr/local/tomcat/bin/catalina.sh run &"
+        start_catalina = "/usr/local/tomcat/bin/catalina.sh run > /dev/null 2>&1 &"
         teastore_base_cmd = f"/bin/sh -c '{dockermemoryconfigurator} {start_local_tomcat} && {start_catalina}'"
 
         TEASTORE_KIEKER_STATIC_IP = "10.0.0.242"
@@ -210,7 +211,7 @@ class TeaStoreTopo(Topo):
             dimage="descartesresearch/teastore-persistence",
             environment={"HOST_NAME": TEASTORE_PERSISTENCE_STATIC_IP,
                          "REGISTRY_HOST": TEASTORE_REGISTRY_STATIC_IP,
-                         "RABBITMQ_HOST": TEASTORE_KIEKER_STATIC_IP,
+                         # "RABBITMQ_HOST": TEASTORE_KIEKER_STATIC_IP,
                          "DB_HOST": TEASTORE_DB_STATIC_IP,
                          "DB_PORT": "3306"
                          },
@@ -226,7 +227,7 @@ class TeaStoreTopo(Topo):
             dimage="descartesresearch/teastore-auth",
             environment={"HOST_NAME": TEASTORE_AUTH_STATIC_IP,
                          "REGISTRY_HOST": TEASTORE_REGISTRY_STATIC_IP,
-                         "RABBITMQ_HOST": TEASTORE_KIEKER_STATIC_IP,
+                         # "RABBITMQ_HOST": TEASTORE_KIEKER_STATIC_IP,
                          },
             cpu_quota=100000,
             cpu_period=100000
@@ -240,7 +241,7 @@ class TeaStoreTopo(Topo):
             dimage="descartesresearch/teastore-image",
             environment={"HOST_NAME": TEASTORE_IMAGE_STATIC_IP,
                          "REGISTRY_HOST": TEASTORE_REGISTRY_STATIC_IP,
-                         "RABBITMQ_HOST": TEASTORE_KIEKER_STATIC_IP
+                         # "RABBITMQ_HOST": TEASTORE_KIEKER_STATIC_IP
                          },
             cpu_quota=100000,
             cpu_period=100000
@@ -254,7 +255,7 @@ class TeaStoreTopo(Topo):
             dimage="descartesresearch/teastore-recommender",
             environment={"HOST_NAME": TEASTORE_RECOMMENDER_STATIC_IP,
                          "REGISTRY_HOST": TEASTORE_REGISTRY_STATIC_IP,
-                         "RABBITMQ_HOST": TEASTORE_KIEKER_STATIC_IP
+                         # "RABBITMQ_HOST": TEASTORE_KIEKER_STATIC_IP
                          },
             cpu_quota=100000,
             cpu_period=100000
@@ -455,7 +456,7 @@ def start_teastore_loadtest(net: Mininet, load_intensity_profile):
 
     cmd_output = h_runner.cmd("{} &> /dev/null &".format(cmd))
     info(cmd_output)
-    info('*** TeaStore Workload is running ...\n')
+    info(f'*** TeaStore Workload is running now: {datetime.now().time()} ...\n')
 
 
 def test_topology(net: Mininet):
@@ -517,6 +518,8 @@ def read_and_handle_locust_executor_pipe_messages(**kwargs):
         global current_load_intensity_profile_index
         current_load_intensity_profile_index += 1
         if current_load_intensity_profile_index < len(load_intensity_profiles):
+            info('*** Starting next load test in 30 seconds\n')
+            sleep(30)
             start_teastore_loadtest(net, load_intensity_profiles[current_load_intensity_profile_index])
             return
 
@@ -540,7 +543,11 @@ def main(
         start_pox()
 
         teastore_topo = TeaStoreTopo()
-        net = Containernet(topo=teastore_topo, link=TCLink, autoSetMacs=True)
+        net = Containernet(
+            topo=teastore_topo,
+            # link=TCLink,
+            autoSetMacs=True
+        )
         if use_simulation:
             teastore_topo.add_teastore_simulation_and_start_network(net)
         else:

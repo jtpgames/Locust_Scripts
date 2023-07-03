@@ -350,6 +350,10 @@ class UserBehavior(FastHttpUser):
                     self.number_of_completed_workload_cycles += 1
         except requests.exceptions.ConnectionError as e:
             logging.error(f"{e.request.url, str(e)}")
+        except TimeoutError as e:
+            logging.error(f"{self._user}: {str(e)}")
+        except Exception as e:
+            logging.error(e)
 
         if stop_executing_users and self.number_of_completed_workload_cycles >= UserBehavior.completed_workload_cycles_per_user:
             if UserBehavior.currently_executing_users == 1:
