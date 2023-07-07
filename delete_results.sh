@@ -9,5 +9,5 @@ rm *.sar -fv
 rm *.svg -fv
 rm *.out -fv
 rm pox_output.log -fv
-rm switch_flow_stats.json -fv
+rm switch_flow_stats*.json -fv
 rm Simulators/teastore_simulation*.log -fv

@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import threading
 from datetime import datetime
+from pathlib import Path
 from signal import SIGTERM
 from time import sleep
 from typing import Optional, IO
@@ -389,7 +390,7 @@ def start_pox():
 
     install_our_pox_plugin(False)
 
-    statistics_file = os.getcwd() + "/switch_flow_stats.json"
+    statistics_file = Path.cwd() / f"switch_flow_stats_{datetime.now().strftime('%Y-%m-%d')}.json"
     command = f'./pox.py --verbose samples.pretty_log forwarding.l2_pairs ext.{POX_PLUGIN_NAME} --file="{statistics_file}"'
 
     pox_dir = find_directory("pox")
