@@ -56,17 +56,6 @@ class SwitchAggFlowStatsEncoder(JSONEncoder):
         return super().default(o)
 
 
-class SwitchAggFlowStatsDecoder(json.JSONDecoder):
-    def object_hook(self, dct):
-        if 'switch_id' in dct and 'bytes_per_second_received' in dct and 'packets_per_second_received' in dct:
-            switch_id = dct['switch_id']
-            stats = SwitchAggFlowStats(switch_id)
-            stats.bytes_per_second_received = {time.fromisoformat(k): v for k, v in dct['bytes_per_second_received'].items()}
-            stats.packets_per_second_received = {time.fromisoformat(k): v for k, v in dct['packets_per_second_received'].items()}
-            return stats
-        return dct
-
-
 statistics_file_path = ""
 log = core.getLogger()
 
