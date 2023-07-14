@@ -98,7 +98,7 @@ def go_down(event):
     log.info("Writing Statistics to file ...")
     with open(statistics_file_path, "w") as file:
         file.truncate()
-        json.dump(agg_flow_stats, file, cls=SwitchAggFlowStatsEncoder, indent=2)
+        json.dump(list(agg_flow_stats.values()), file, cls=SwitchAggFlowStatsEncoder, indent=2)
     log.info("Stats Received per Second Collector shut down")
 
 
