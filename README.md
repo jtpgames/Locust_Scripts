@@ -1,3 +1,11 @@
+# How To Work With This Repository
+Within this repository, you'll discover the source code, 
+detailed instructions, and, where applicable, the results generated from my research on the RAST approach 
+that was originally introduced at the MASCOTS 2022 conference.
+
+To effectively navigate the historical states of this repository corresponding to the specific papers, I've organized them into dedicated branches. 
+For instance, the "MASCOTS2022" Branch represents the exact state of the repository at the time of crafting and presenting the paper submitted for review and later published at MASCOTS 2022.
+
 # Improved RAST Simulator and Load Tester Components (In Review: MASCOTS 2023)
 **Last change from: 25.06.2023**
 

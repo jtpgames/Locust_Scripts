@@ -156,6 +156,8 @@ def my_failure_handler(request_type, name, response_time, response_length, excep
 class LoadIntensityProfile(Enum):
     LOW = "locust/increasingLowIntensity.csv"
     LOW_2 = "locust/increasingLow2Intensity.csv"
+    LOW_4 = "locust/increasingLow4Intensity.csv"
+    LOW_8 = "locust/increasingLow8Intensity.csv"
     MED = "locust/increasingMedIntensity.csv"
     HIGH = "locust/increasingHighIntensity.csv"
 
@@ -276,6 +278,33 @@ class UserBehavior(FastHttpUser):
 
     use_buy_profile = False if WITH_WARMUP_PHASE else USE_BUY_PROFILE
 
+    class Response:
+        def __init__(self, obj):
+            self.obj = obj
+
+        def __getattr__(self, attr):
+            # Check if the attribute exists in the wrapped object
+            if hasattr(self.obj, attr):
+                # Return the attribute from the wrapped object
+                return getattr(self.obj, attr)
+            else:
+                # Handle the case when the attribute is not found
+                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{attr}'")
+
+        @property
+        def ok(self):
+            if hasattr(self.obj, 'ok'):
+                # Call the method
+                return self.obj.ok
+            else:
+                return False
+
+    def _log_info(self, msg: str):
+        logging.info(f"{self._user}: {msg}")
+
+    def _log_error(self, msg: str):
+        logging.error(f"{self._user}: {msg}")
+
     def _get(self, url, params=None):
         request_id = uuid1().int
 
@@ -283,7 +312,7 @@ class UserBehavior(FastHttpUser):
         global total_requests_counter
         total_requests_counter += 1
         self.wait()
-        return resp
+        return UserBehavior.Response(resp)
 
     def _post(self, url, params=None, with_wait=True):
         request_id = uuid1().int
@@ -293,14 +322,14 @@ class UserBehavior(FastHttpUser):
         total_requests_counter += 1
         if with_wait:
             self.wait()
-        return resp
+        return UserBehavior.Response(resp)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._prefix = self.host + "/tools.descartes.teastore.webui"
 
-        self.network_timeout = 120
-        self.connection_timeout = 120
+        self.network_timeout = 240
+        self.connection_timeout = 240
 
         self._user_id = UserBehavior.global_user_count
         self._user = "user" + str(self._user_id)
@@ -320,7 +349,7 @@ class UserBehavior(FastHttpUser):
             try:
                 self.logout(with_wait=False)
             except requests.exceptions.ConnectionError as e:
-                logging.error(f"{e.request.url, str(e)}")
+                self._log_error(f"{e.request.url, str(e)}")
 
     @task
     def load(self) -> None:
@@ -349,11 +378,11 @@ class UserBehavior(FastHttpUser):
                 if is_warmup_finished:
                     self.number_of_completed_workload_cycles += 1
         except requests.exceptions.ConnectionError as e:
-            logging.error(f"{e.request.url, str(e)}")
+            self._log_error(f"{e.request.url, str(e)}")
         except TimeoutError as e:
-            logging.error(f"{self._user}: {str(e)}")
+            self._log_error(str(e))
         except Exception as e:
-            logging.error(e)
+            self._log_error(str(e))
 
         if stop_executing_users and self.number_of_completed_workload_cycles >= UserBehavior.completed_workload_cycles_per_user:
             if UserBehavior.currently_executing_users == 1:
@@ -370,9 +399,9 @@ class UserBehavior(FastHttpUser):
         # load landing page
         res = self._get(self._prefix + '/')
         if res.status_code == 200 or res.ok:
-            logging.info("Loaded landing page.")
+            self._log_info("Loaded landing page.")
         else:
-            logging.error(f"Could not load landing page: {res.status_code}")
+            self._log_error(f"Could not load landing page: {res.status_code}")
         global index_page_requests_counter
         index_page_requests_counter += 1
 
@@ -384,9 +413,9 @@ class UserBehavior(FastHttpUser):
         # load login page
         res = self._get(self._prefix + '/login')
         if res.status_code == 200 or res.ok:
-            logging.info("Loaded login page.")
+            self._log_info("Loaded login page.")
         else:
-            logging.error(f"Could not load login page: {res.status_code}")
+            self._log_error(f"Could not load login page: {res.status_code}")
         global login_page_requests_counter
         login_page_requests_counter += 1
 
@@ -395,10 +424,10 @@ class UserBehavior(FastHttpUser):
         url = f"/loginAction?username={user}&password=password"
         login_request = self._post(self._prefix + url)
         if login_request.status_code == 200 or login_request.ok:
-            logging.info(f"Login with username: {user}")
+            self._log_info(f"Login with username: {user}")
             self._is_logged_in = True
         else:
-            logging.error(
+            self._log_error(
                 f"Could not login with username: {user} - status: {login_request.status_code}")
         global login_requests_counter
         login_requests_counter += 1
@@ -423,29 +452,29 @@ class UserBehavior(FastHttpUser):
             category_request = self._get(self._prefix + url)
             # category_request = self._get(self._prefix + "/category", params={"page": page, "category": category_id})
             if category_request.status_code == 200 or category_request.ok:
-                logging.info(f"Visited category {category_id} on page 1")
+                self._log_info(f"Visited category {category_id} on page 1")
                 # browses random product
                 product_id = self._random.randint(7, 506)
                 url = f"/product?id={product_id}"
                 product_request = self._get(self._prefix + url)
                 # product_request = self._get(self._prefix + "/product", params={"id": product_id})
                 if product_request.status_code == 200 or product_request.ok:
-                    logging.info(f"Visited product with id {product_id}.")
+                    self._log_info(f"Visited product with id {product_id}.")
                     url = f"/cartAction?addToCart=&productid={product_id}"
                     cart_request = self._post(self._prefix + url)
                     # cart_request = self._post(self._prefix + "/cartAction", params={"addToCart": "", "productid": product_id})
                     if cart_request.status_code == 200 or cart_request.ok:
-                        logging.info(f"Added product {product_id} to cart.")
+                        self._log_info(f"Added product {product_id} to cart.")
                     else:
-                        logging.error(
+                        self._log_error(
                             f"Could not put product {product_id} in cart - status {cart_request.status_code}")
                     add_to_cart_requests_counter += 1
                 else:
-                    logging.error(
+                    self._log_error(
                         f"Could not visit product {product_id} - status {product_request.status_code}")
                 product_requests_counter += 1
             else:
-                logging.error(
+                self._log_error(
                     f"Could not visit category {category_id} on page 1 - status {category_request.status_code}")
             category_requests_counter += 1
 
@@ -473,9 +502,9 @@ class UserBehavior(FastHttpUser):
         buy_request = self._post(self._prefix + url)
         # buy_request = self._post(self._prefix + "/cartAction", params=user_data)
         if buy_request.status_code == 200 or buy_request.ok:
-            logging.info(f"Bought products.")
+            self._log_info(f"Bought products.")
         else:
-            logging.error("Could not buy products.")
+            self._log_error("Could not buy products.")
         global buy_requests_counter
         buy_requests_counter += 1
 
@@ -486,9 +515,9 @@ class UserBehavior(FastHttpUser):
         """
         profile_request = self._get(self._prefix + "/profile")
         if profile_request.status_code == 200 or profile_request.ok:
-            logging.info("Visited profile page.")
+            self._log_info("Visited profile page.")
         else:
-            logging.error("Could not visit profile page.")
+            self._log_error("Could not visit profile page.")
         global profile_requests_counter
         profile_requests_counter += 1
 
@@ -501,9 +530,9 @@ class UserBehavior(FastHttpUser):
         logout_request = self._post(self._prefix + url, with_wait=with_wait)
         # logout_request = self._post(self._prefix + "/loginAction", params={"logout": ""})
         if logout_request.status_code == 200 or logout_request.ok:
-            logging.info("Successful logout.")
+            self._log_info("Successful logout.")
             self._is_logged_in = False
         else:
-            logging.error(f"Could not log out - status: {logout_request.status_code}")
+            self._log_error(f"Could not log out - status: {logout_request.status_code}")
         global logout_requests_counter
         logout_requests_counter += 1

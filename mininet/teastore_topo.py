@@ -28,9 +28,13 @@ POX_PLUGIN_NAME = "stats_per_second_collector"
 
 CLI_ARGS = {}
 
+number_of_intensity_profile_reruns = 2
+current_load_intensity_profile_run_count = 0
+
 current_load_intensity_profile_index = 0
 
-load_intensity_profiles = ["LOW", "LOW_2", "MED", "HIGH"]
+load_intensity_profiles = ["LOW", "LOW_2", "LOW_4", "LOW_8"]
+# load_intensity_profiles = ["LOW", "LOW_2", "LOW_4", "LOW_8", "MED", "HIGH"]
 
 
 class SDNSwitch(OVSSwitch):
@@ -388,7 +392,7 @@ def install_our_pox_plugin(force: bool):
 def start_pox():
     info("*** Starting POX Controller\n")
 
-    install_our_pox_plugin(False)
+    install_our_pox_plugin(True)
 
     statistics_file = Path.cwd() / f"switch_flow_stats_{datetime.now().strftime('%Y-%m-%d')}.json"
     command = f'./pox.py --verbose samples.pretty_log forwarding.l2_pairs ext.{POX_PLUGIN_NAME} --file="{statistics_file}"'
@@ -451,6 +455,9 @@ def start_teastore_loadtest(net: Mininet, load_intensity_profile):
     if CLI_ARGS["run_all_load_intensity_profiles"]:
         h_runner.cmdPrint(f"export KEEP_TEASTORE_LOGS=True")
     h_runner.cmdPrint(f"export LOAD_INTENSITY_PROFILE={load_intensity_profile}")
+
+    global current_load_intensity_profile_run_count
+    current_load_intensity_profile_run_count += 1
 
     cmd = f'./start_teastore_loadtest.sh --ip {webui.IP()}'
     info(f'{cmd}\n')
@@ -516,8 +523,10 @@ def read_and_handle_locust_executor_pipe_messages(**kwargs):
     read_from_pipe_until_finish(pipe_name)
 
     if CLI_ARGS["run_all_load_intensity_profiles"]:
-        global current_load_intensity_profile_index
-        current_load_intensity_profile_index += 1
+        global current_load_intensity_profile_index, current_load_intensity_profile_run_count
+        if current_load_intensity_profile_run_count >= number_of_intensity_profile_reruns:
+            current_load_intensity_profile_index += 1
+            current_load_intensity_profile_run_count = 0
         if current_load_intensity_profile_index < len(load_intensity_profiles):
             info('*** Starting next load test in 30 seconds\n')
             sleep(30)
@@ -546,7 +555,7 @@ def main(
         teastore_topo = TeaStoreTopo()
         net = Containernet(
             topo=teastore_topo,
-            # link=TCLink,
+            link=TCLink,
             autoSetMacs=True
         )
         if use_simulation:
