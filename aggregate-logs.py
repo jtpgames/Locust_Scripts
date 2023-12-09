@@ -4,8 +4,8 @@ from pathlib import Path
 results = []
 
 if __name__ == "__main__":
-    for path in Path('locust-parameter-variation-logs-epew2023/Kotlin-ARS-logs-24-04-23').rglob('v2*.log'):
-        print(path)
+    for path in Path('locust-parameter-variation-logs-simutools2023/Kotlin-ARS-logs-24-04-23').rglob('v2*.log'):
+        # print(path)
 
         with open(path, 'r') as file_obj:
             for line in file_obj:
@@ -24,6 +24,8 @@ if __name__ == "__main__":
                 clients = float(splittedLine[1])
                 avg = float(splittedLine[3])
                 max = float(splittedLine[4])
+
+                # print(f"{clients}, {avg}, {max}")
 
                 found = False
                 for kv in results:
@@ -59,7 +61,12 @@ if __name__ == "__main__":
         result['mean_of_values']['max'] = mean_max
 
     json_string = json.dumps(results, indent=2)
-    print(json_string)
+    # print(json_string)
+
+    print("# Clients, Avg. Response Time, Max Response Time, Mean Avg. Response Time, Mean Max Response Time")
+    for result in results:
+        for value in result['values']:
+            print(f"{result['num_clients']}, {value['avg']}, {value['max']}, {result['mean_of_values']['avg']}, {result['mean_of_values']['max']}")
 
     with open("aggregated_logs.log", 'w') as file_obj:
         for result in results:
