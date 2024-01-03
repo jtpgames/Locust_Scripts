@@ -6,10 +6,37 @@ that was originally introduced at the MASCOTS 2022 conference.
 To effectively navigate the historical states of this repository corresponding to the specific papers, I've organized them into dedicated branches. 
 For instance, the "MASCOTS2022" Branch represents the exact state of the repository at the time of crafting and presenting the paper submitted for review and later published at MASCOTS 2022.
 
-# Improved RAST Simulator and Load Tester Components (In Review: MASCOTS 2023)
+# Improving RAST with SDN (WIP)
+Currently, I am working on improving the prediction quality of RAST by enriching the request logs with network metrics recorded by an SDN controller.
+For this, I use containernet (fork of mininet) as the network emulator and pox as the SDN controller. 
+I built a containernet topology that encapsulates two different kinds of experiments: 
+1. Running an experiment using the TeaStore benchmarking application.
+2. Running an experiment with a simulated version of TeaStore.
+
+Within an experiment a load test is used to generate request logs and network metrics.
+
+Preparations:
+* Clone pox in a directory called `pox. Use the halosaur branch.
+* Clone the locust_scripts repository in a directory called `locust_scripts`.
+* Both directories should be on the same directory level, e.g., `~/pox` and `~/locust_scripts`.
+
+Recommended workflow (for terminal users working with different terminal sessions. We will refer to these sessions by numbers):
+1. Session (1): 
+   * This session will be used to start the Load Test. Navigate to the locust_scripts folder.
+   * `sudo -s` to gain root access (required for containernet).
+   * `source activate_venv.sh`
+   * (`python mininet/teastore_topo.py --help`) to show help message.
+   * `python mininet/teastore_topo.py` to run one workload intensity, 
+   * `python mininet/teastore_topo.py -a` to run all,
+   * `-s` uses the simulation for the experiment, e.g., `python mininet/teastore_topo.py -s -a`
+
+The relevant files after the experiment are:
+* switch_flow_stats_{date}.json: Contains the collected network metrics.
+
+# Improved RAST Simulator and Load Tester Components
 **Last change from: 25.06.2023**
 
-In our publication (currently in review at MASCOTS 2023), we explain, implement and evaluate improvements to the following components of RAST:
+In a current paper manuscript, we explain, implement and evaluate improvements to the following components of RAST:
 * Predictive Model Creator,
 * Simulator,
 * Load Tester.
@@ -64,6 +91,8 @@ Recommended workflow (for terminal users):
 
 # Automated Estimator Pipeline
 **Last update from: 03.06.2023**
+
+**TODO: Accepted for publication at SIMUtools 2023. Add link.**
 
 The [Automated Estimator Pipline](https://github.com/jtpgames/Automated-Estimator-Pipeline) by Adrian Liermann was developed as part of his master's thesis.
 In his thesis, he implements and evaluates improvements to our RAST approach, 

@@ -1,0 +1,45 @@
+2023-04-24 16:57:36,216 Starting performance test.
+2023-04-24 16:57:36,216 Starting 1. worker
+2023-04-24 16:57:36,218 Starting 2. worker
+2023-04-24 16:57:36,220 Starting 3. worker
+2023-04-24 16:57:36,222 Starting 4. worker
+2023-04-24 16:57:36,224 Starting 5. worker
+2023-04-24 16:57:36,226 Starting master to run for 10 min
+2023-04-24 16:57:36,226 --expect-workers=5
+2023-04-24 17:07:40,061 Avg: 120.43706896551724, Min: 45.0, Max: 6315.0
+2023-04-24 17:07:40,062 Clients: 200: avg: 0.12043706896551724s, max: 6.315s
+2023-04-24 17:07:40,062 --> True
+2023-04-24 17:07:40,062 Sleeping for 1 min ...
+2023-04-24 17:08:40,079 Starting 1. worker
+2023-04-24 17:08:40,081 Starting 2. worker
+2023-04-24 17:08:40,084 Starting 3. worker
+2023-04-24 17:08:40,086 Starting 4. worker
+2023-04-24 17:08:40,088 Starting 5. worker
+2023-04-24 17:08:40,090 Starting master to run for 10 min
+2023-04-24 17:08:40,090 --expect-workers=5
+2023-04-24 17:18:43,647 Avg: 126.42637931034483, Min: 42.0, Max: 12622.0
+2023-04-24 17:18:43,647 Clients: 400: avg: 0.12642637931034484s, max: 12.622s
+2023-04-24 17:18:43,647 --> True
+2023-04-24 17:18:43,648 Sleeping for 1 min ...
+2023-04-24 17:19:43,681 Starting 1. worker
+2023-04-24 17:19:43,684 Starting 2. worker
+2023-04-24 17:19:43,686 Starting 3. worker
+2023-04-24 17:19:43,688 Starting 4. worker
+2023-04-24 17:19:43,691 Starting 5. worker
+2023-04-24 17:19:43,693 Starting master to run for 10 min
+2023-04-24 17:19:43,693 --expect-workers=5
+2023-04-24 17:29:47,568 Avg: 118.77390804597701, Min: 39.0, Max: 8438.0
+2023-04-24 17:29:47,568 Clients: 600: avg: 0.11877390804597701s, max: 8.438s
+2023-04-24 17:29:47,568 --> True
+2023-04-24 17:29:47,568 Sleeping for 1 min ...
+2023-04-24 17:30:47,612 Starting 1. worker
+2023-04-24 17:30:47,615 Starting 2. worker
+2023-04-24 17:30:47,617 Starting 3. worker
+2023-04-24 17:30:47,620 Starting 4. worker
+2023-04-24 17:30:47,622 Starting 5. worker
+2023-04-24 17:30:47,624 Starting master to run for 10 min
+2023-04-24 17:30:47,624 --expect-workers=5
+2023-04-24 17:40:51,161 Avg: 167.38029322984045, Min: 41.0, Max: 34462.0
+2023-04-24 17:40:51,161 Clients: 800: avg: 0.16738029322984044s, max: 34.462s
+2023-04-24 17:40:51,162 --> False
+2023-04-24 17:40:51,162 Finished performance test. System failed at 800
