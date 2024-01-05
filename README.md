@@ -7,10 +7,12 @@ To effectively navigate the historical states of this repository corresponding t
 For instance, the "MASCOTS2022" Branch represents the exact state of the repository at the time of crafting and presenting the paper submitted for review and later published at MASCOTS 2022.
 
 # Improving RAST with SDN (WIP)
+**Last change from: 05.01.2024**
+
 Currently, I am working on improving the prediction quality of RAST by enriching the request logs with network metrics recorded by an SDN controller.
-For this, I use containernet (fork of mininet) as the network emulator and pox as the SDN controller. 
+For my experiments, I use containernet (fork of mininet) as the network emulator and pox as the SDN controller. 
 I built a containernet topology that encapsulates two different kinds of experiments: 
-1. Running an experiment using the TeaStore benchmarking application.
+1. Running an experiment using the TeaStore benchmarking application (our [TeaStore Fork](https://github.com/jtpgames/TeaStore)).
 2. Running an experiment with a simulated version of TeaStore.
 
 Within an experiment a load test is used to generate request logs and network metrics.
@@ -18,20 +20,27 @@ Within an experiment a load test is used to generate request logs and network me
 Preparations:
 * Clone pox in a directory called `pox. Use the halosaur branch.
 * Clone the locust_scripts repository in a directory called `locust_scripts`.
+* Clone our TeaStore Fork repository to your local machine.
+* Build the TeaStore application and the associated Docker images by following the instructions provided by the developers. You can find these instructions in the GET_STARTED.md file within the cloned repository.
 * Both directories should be on the same directory level, e.g., `~/pox` and `~/locust_scripts`.
 
-Recommended workflow (for terminal users working with different terminal sessions. We will refer to these sessions by numbers):
-1. Session (1): 
-   * This session will be used to start the Load Test. Navigate to the locust_scripts folder.
-   * `sudo -s` to gain root access (required for containernet).
-   * `source activate_venv.sh`
-   * (`python mininet/teastore_topo.py --help`) to show help message.
-   * `python mininet/teastore_topo.py` to run one workload intensity, 
-   * `python mininet/teastore_topo.py -a` to run all,
-   * `-s` uses the simulation for the experiment, e.g., `python mininet/teastore_topo.py -s -a`
+Recommended workflow (for terminal users):
+* This session will be used to start the Load Test. Navigate to the locust_scripts folder.
+* `sudo -s` to gain root access (required for containernet).
+* `source activate_venv.sh`
+* (`python mininet/teastore_topo.py --help`) to show help message.
+* `python mininet/teastore_topo.py` to run one workload intensity, 
+* `python mininet/teastore_topo.py -a` to run all,
+* `-s` uses the simulation for the experiment, e.g., `python mininet/teastore_topo.py -s -a`
 
 The relevant files after the experiment are:
-* switch_flow_stats_{date}.json: Contains the collected network metrics.
+* switch_flow_stats_{date}.json: contains the observed bytes and packets per second per SDN switch.
+* TeaStore kieker logs (needs to be downloaded from the /logs endpoint of TeaStore): contains the kieker logs of the real TeaStore application. 
+  Needs to be converted using our Kieker_ETL project to be usable for RAST.
+* Simulators/teastore_simulation.log: contains the request logs of our simulator including received requests and their processing times, already in a usable format for RAST.
+* locust_log.log: contains the logs of the load tester, requests and their response times.
+
+These files serve as input to our different analysis tools in the Regression-Analysis_Workload-Characterization project.
 
 # Improved RAST Simulator and Load Tester Components
 **Last change from: 25.06.2023**
