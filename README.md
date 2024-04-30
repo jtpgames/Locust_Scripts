@@ -5,6 +5,7 @@ that was originally introduced at the MASCOTS 2022 conference.
 
 To effectively navigate the historical states of this repository corresponding to the specific papers, I've organized them into dedicated branches. 
 For instance, the "MASCOTS2022" Branch represents the exact state of the repository at the time of crafting and presenting the paper submitted for review and later published at MASCOTS 2022.
+After selecting the desired Branch, look for the appropriate conference name in the README file.
 
 # Improving RAST with SDN (WIP)
 **Last change from: 05.01.2024**
