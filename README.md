@@ -98,10 +98,10 @@ Recommended workflow (for terminal users):
    navigate to Session (4) and follow the instructions in the README.md file within the Simulators repository.
 
 
-# Automated Estimator Pipeline
+# Automated Estimator Pipeline (SIMUtools 2023)
 **Last update from: 03.06.2023**
 
-**TODO: Accepted for publication at SIMUtools 2023. Add link.**
+**DOI: https://doi.org/10.1007/978-3-031-57523-5_2**
 
 The [Automated Estimator Pipline](https://github.com/jtpgames/Automated-Estimator-Pipeline) by Adrian Liermann was developed as part of his master's thesis.
 In his thesis, he implements and evaluates improvements to our RAST approach, 
