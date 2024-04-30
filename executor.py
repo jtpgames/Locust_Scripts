@@ -140,15 +140,21 @@ def main(
                             level=os.environ.get("LOGLEVEL", "INFO"),
                             handlers=[fh])
 
-    pipe_name = "/tmp/locust_executor_pipe"
-    if not os.path.exists(pipe_name):
-        os.mkfifo(pipe_name)
+    pipe_fd = 0
+    open_fifo_pipe_env = os.environ.get('OPEN_FIFO_PIPE')
+    if open_fifo_pipe_env is not None and open_fifo_pipe_env:
+        pipe_name = "/tmp/locust_executor_pipe"
+        if not os.path.exists(pipe_name):
+            os.mkfifo(pipe_name)
 
-    pipe_fd = os.open(pipe_name, os.O_WRONLY)
+        logging.info("Opening locust_executor_pipe")
+        pipe_fd = os.open(pipe_name, os.O_WRONLY)
+        logging.info("Pipe opened")
     try:
         load_intensity_profile_env = os.environ.get('LOAD_INTENSITY_PROFILE')
         if load_intensity_profile_env is not None:
-            os.write(pipe_fd, str(load_intensity_profile_env).encode())
+            if pipe_fd != 0:
+                os.write(pipe_fd, str(load_intensity_profile_env).encode())
 
         call_locust_with(locust_script, url, num_clients, runtime, silent)
 
@@ -158,9 +164,11 @@ def main(
         if "teastore" in locust_script:
             analyse_teastore_response_times()
 
-        os.write(pipe_fd, "FIN".encode())
+        if pipe_fd != 0:
+            os.write(pipe_fd, "FIN".encode())
     finally:
-        os.close(pipe_fd)
+        if pipe_fd != 0:
+            os.close(pipe_fd)
 
 
 if __name__ == "__main__":

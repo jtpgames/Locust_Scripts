@@ -455,6 +455,7 @@ def start_teastore_loadtest(net: Mininet, load_intensity_profile):
     if CLI_ARGS["run_all_load_intensity_profiles"]:
         h_runner.cmdPrint(f"export KEEP_TEASTORE_LOGS=True")
     h_runner.cmdPrint(f"export LOAD_INTENSITY_PROFILE={load_intensity_profile}")
+    h_runner.cmdPrint(f"export OPEN_FIFO_PIPE=True")
 
     global current_load_intensity_profile_run_count
     current_load_intensity_profile_run_count += 1
