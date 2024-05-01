@@ -125,8 +125,12 @@ Recommended workflow (for terminal users):
 6. To modify the predictive model,
    navigate to Session (4) and follow the instructions in the README.md file within the Simulators repository.
 
+### Prediction data
+The prediction data as described in the paper was acquired by running a load test against the simulator with each load intensity profile. In between each load test, we copied the resulting teastore_simulation.log file and renamed it accordingly. After acquiring a log file for each load intensity profile, we used our `ResultComparer` found in our Datalore notebook <<datalore_notebook>>.
+
 ### Validation data
-The validation data as described in the paper was acquired by running a load test against the simulator with each load intensity profile. In between each load test, we copied the resulting teastore_simulation.log file and renamed it accordingly. After acquiring a log file for each load intensity profile, we used our `ResultComparer` found in our Datalore notebook <<datalore_notebook>>.
+The validation data is available in our Datalore notebook <<datalore_notebook>>.
+Acquiring the validation data from TeaStore is a more complex process involving downloading kieker logs, transforming them and storing into an SQLite database. The code for this is currently not available on GitHub but is a private repository on JetBrains Space. Access is granted for reviewers after requesting it from the main author of the paper.
 
 # Automated Estimator Pipeline (SIMUtools 2023)
 
