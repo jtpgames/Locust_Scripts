@@ -1,24 +1,41 @@
+# RAST Toolset
+:doctype: book
+:toc:
+:toc-title: pass:[<h3>Table of Contents</h3>]
+:toclevels: 1
+ifdef::env-github[]
+:note-caption: :information_source:
+:tip-caption: :bulb:
+endif::[]
+
+[preface]
 # How To Work With This Repository
+
 Within this repository, you'll discover the source code, 
 detailed instructions, and, where applicable, the results generated from my research on the RAST approach 
 that was originally introduced at the MASCOTS 2022 conference.
 
-To effectively navigate the historical states of this repository corresponding to the specific papers, I've organized them into dedicated branches. 
+TIP: To effectively navigate the historical states of this repository corresponding to the specific papers, I've organized them into dedicated branches.
 For instance, the "MASCOTS2022" Branch represents the exact state of the repository at the time of crafting and presenting the paper submitted for review and later published at MASCOTS 2022.
-After selecting the desired Branch, look for the appropriate conference name in the README file.
+Use the Table of Contents for easier navigation and searching for the desired conference information.
+
+:leveloffset: 1
 
 # Improving RAST with SDN (WIP)
+
 **Last change from: 05.01.2024**
 
 Currently, I am working on improving the prediction quality of RAST by enriching the request logs with network metrics recorded by an SDN controller.
 For my experiments, I use containernet (fork of mininet) as the network emulator and pox as the SDN controller. 
-I built a containernet topology that encapsulates two different kinds of experiments: 
+I built a containernet topology that encapsulates two different kinds of experiments:
+
 1. Running an experiment using the TeaStore benchmarking application (our [TeaStore Fork](https://github.com/jtpgames/TeaStore)).
 2. Running an experiment with a simulated version of TeaStore.
 
 Within an experiment a load test is used to generate request logs and network metrics.
 
 Preparations:
+
 * Clone pox in a directory called `pox. Use the halosaur branch.
 * Clone the locust_scripts repository in a directory called `locust_scripts`.
 * Clone our TeaStore Fork repository to your local machine.
@@ -26,6 +43,7 @@ Preparations:
 * Both directories should be on the same directory level, e.g., `~/pox` and `~/locust_scripts`.
 
 Recommended workflow (for terminal users):
+
 * This session will be used to start the Load Test. Navigate to the locust_scripts folder.
 * `sudo -s` to gain root access (required for containernet).
 * `source activate_venv.sh`
@@ -35,8 +53,9 @@ Recommended workflow (for terminal users):
 * `-s` uses the simulation for the experiment, e.g., `python mininet/teastore_topo.py -s -a`
 
 The relevant files after the experiment are:
+
 * switch_flow_stats_{date}.json: contains the observed bytes and packets per second per SDN switch.
-* TeaStore kieker logs (needs to be downloaded from the /logs endpoint of TeaStore): contains the kieker logs of the real TeaStore application. 
+* TeaStore kieker logs (needs to be downloaded from the /logs endpoint of TeaStore): contains the kieker logs of the real TeaStore application.
   Needs to be converted using our Kieker_ETL project to be usable for RAST.
 * Simulators/teastore_simulation.log: contains the request logs of our simulator including received requests and their processing times, already in a usable format for RAST.
 * locust_log.log: contains the logs of the load tester, requests and their response times.
@@ -44,17 +63,19 @@ The relevant files after the experiment are:
 These files serve as input to our different analysis tools in the Regression-Analysis_Workload-Characterization project.
 
 # Improved RAST Simulator and Load Tester Components (PADS 2024)
+
 **Last change from: 29.04.2024**
 
 **TODO: Accepted for publication at PADS 2024. Add link.**
 
 In our paper, we explain, implement and evaluate improvements to the following components of RAST:
+
 * Predictive Model Creator,
 * Simulator,
 * Load Tester.
 
 For our evaluation, we use the [TeaStore benchmarking application](https://github.com/DescartesResearch/TeaStore). 
-We created a [GitHub fork](https://github.com/jtpgames/TeaStore) and modified some parameters of their logging framework to create consistent logs especially for higher intensity workloads. 
+We created a [GitHub fork](https://github.com/jtpgames/TeaStore) and modified some parameters of their logging framework to create consistent logs especially for higher intensity workloads.
 
 This repository contains the improved Load Tester 
 whereas the Simulator and the predictive models we created can be found in [our Simulators repository](https://github.com/jtpgames/Simulators).
@@ -66,6 +87,7 @@ Additional experimental results not published in our paper, including the Python
 To conduct the experiments outlined in this paper, please follow the step-by-step instructions below:
 
 Preparations:
+
 * Clone our [TeaStore Fork](https://github.com/jtpgames/TeaStore) repository to your local machine.
 * Build the TeaStore application and the associated Docker images by following the instructions provided by the developers. 
   You can find these instructions in the GET_STARTED.md file within the cloned repository.
@@ -73,6 +95,7 @@ Preparations:
 * Clone the locust_scripts repository.
 
 Recommended workflow (for terminal users):
+
 1. Open your terminal and use a terminal multiplexer such as tmux to create four sessions. We will refer to these sessions by numbers:
     * Session (1): This session will be used to start the TeaStore or the Simulator. Navigate to the respective folder within the cloned repositories.
     * Session (2): This session will be used to start the Load Test. Navigate to the `locust_scripts` folder.
@@ -86,13 +109,13 @@ Recommended workflow (for terminal users):
    If successful, you will see the following line printed on the console: `INFO ktor.application - Responding at http://0.0.0.0:8081`. 
    To terminate the Simulator, press `Ctrl + C`.
 3. In Session (2):
-   1. (Recommended):
-        1. Create a python virtual environment in a directory called `venv`, e.g., `python3 -m venv venv`
-        2. Run the command `source activate_venv.sh` to activate the Python virtual environment (venv).
-   2. Execute `./start_teastore_loadtest.sh` to initiate the load test. 
+..   1. (Recommended):
+...        1. Create a python virtual environment in a directory called `venv`, e.g., `python3 -m venv venv`
+...        2. Run the command `source activate_venv.sh` to activate the Python virtual environment (venv).
+..   2. Execute `./start_teastore_loadtest.sh` to initiate the load test.
      This repository uses a low load intensity by default. 
      The load test will automatically conclude after approximately two minutes.
-   3. Clean the folder by executing `./delete_results.sh`.
+..   3. Clean the folder by executing `./delete_results.sh`.
 4. In Session (4), you can now examine the `teastore_simulation.log` file. 
    This file contains simulated processing times generated by the predictive model, among other relevant information.
 5. To modify the load intensity profile, 
@@ -104,6 +127,7 @@ Recommended workflow (for terminal users):
 
 
 # Automated Estimator Pipeline (SIMUtools 2023)
+
 **Last update from: 03.06.2023**
 
 **DOI: https://doi.org/10.1007/978-3-031-57523-5_2**
@@ -123,6 +147,7 @@ The Automated Estimator Pipeline is an implementation of these improved componen
 **Last update from: 25.06.2023**
 
 In our [latest publication at MASCOTS 2022](https://www.doi.org/10.1109/MASCOTS56607.2022.00015), we explain our extension of this project.
+
 * We provide a regression model learned from log files using our RAST approach;
 * we improved the Simulator so that it uses the regression model to simulate processing times of the System-Under-Evaluation (SUE);
 * we built a [mininet](http://mininet.org/) topology to ease the process of reproducibly launching experiments. 
@@ -132,9 +157,13 @@ We modelled the link parameters based on the infrastructure of the SUE;
 ## Instructions to launch an experiment
 ### Quick start
 
-> Tested with
-> * Python 3.8.10 on Ubuntu 20.04 LTS
-> * Python 3.9.12 on macOS 12.6.1
+[NOTE]
+====
+Tested with
+
+* Python 3.8.10 on Ubuntu 20.04 LTS
+* Python 3.9.12 on macOS 12.6.1
+====
 
 * Clone the MASCOTS2022 branch of this repository
 * run `cd <the_directory_you_cloned_the_repository>`
@@ -145,9 +174,9 @@ We modelled the link parameters based on the infrastructure of the SUE;
 * run `cd mininet`
 * execute `./start_mininet.sh`
 * if mininet successfully started the experiment, you will notice a series of log files that were created:
-    * ARS_simulation.log (means that the Simulator is running)
-    * locust-parameter-variation.log (means that the load tester is generating the alarm device workload)
-    * locust.log (means that the load tester is generating the background workload)
+    ** ARS_simulation.log (means that the Simulator is running)
+    ** locust-parameter-variation.log (means that the load tester is generating the alarm device workload)
+    ** locust.log (means that the load tester is generating the background workload)
 * in another terminal, run `cd <the_directory_you_cloned_the_repository>`
 * run `tail -f locust-parameter-variation.log`
 * the experiment may run for a couple of hours. 
@@ -161,7 +190,7 @@ depending on the number of simulated alarm devices.
 
 **Last update from: 25.06.2023**
 
-In [[1]](https://www.doi.org/10.1007/978-3-030-68110-4_9), we introduced a 
+In <<tomak2020>>, we introduced a
 generic performance testing infrastructure and used it in an industrial case study. 
 Our idea is to have decoupled components, 
 Python scripts in our case, that together allow to:
@@ -179,29 +208,29 @@ Usually, the target systems will be external systems, e.g., web servers.
 In our case, we build software that simulates the behavior of a real system, 
 in order to provide the means for others to roughly reproduce our experiments.
 
-More details about our generic performance testing infrastructure can be found in our paper [[1]](https://www.doi.org/10.1007/978-3-030-68110-4_9).
+More details about our generic performance testing infrastructure can be found in our paper <<tomak2020>>.
 
 This repository contains the aforementioned Python scripts:
 
 * Executors:
-    * executor.py: executes Locust with a set of parameters;
-    * locust-parameter-variation.py: executes Locust and keeps increasing the load.
-    This is similar to Locust's [Step Load Mode](https://docs.locust.io/en/stable/running-locust-in-step-load-mode.html), 
+    ** executor.py: executes Locust with a set of parameters;
+    ** locust-parameter-variation.py: executes Locust and keeps increasing the load.
+    This is similar to Locust's [Step Load Mode](https://docs.locust.io/en/stable/running-locust-in-step-load-mode.html),
     however, our approach increases the number of clients for as long as the ARS complies with real-time requirements
-    in order to find the saturation point of the ARS. 
+    in order to find the saturation point of the ARS.
 * Load Testers:
-    * locust_tester.py: contains specific code for Locust to perform the actual performance test.
+    ** locust_tester.py: contains specific code for Locust to perform the actual performance test.
 For demonstration purposes, this script tests ARS_simulation.py.
 Outputs a `locust_log.log`;
-    * locust_multiple_requests: an enhanced version of locust_tester that sends additional requests to generate more load.
-    * locust_teastore.py: performs load testing against TeaStore, or our simulated TeaStore.
+    ** locust_multiple_requests: an enhanced version of locust_tester that sends additional requests to generate more load.
+    ** locust_teastore.py: performs load testing against TeaStore, or our simulated TeaStore.
 * Evaluators:
-    * loadtest_plotter.py: reads the `locust_log.log`, plots response times, and additional metrics 
+    ** loadtest_plotter.py: reads the `locust_log.log`, plots response times, and additional metrics
 to better visualize, if the real-time requirements of the EN 50136 are met.
 * SUTs
-    * Alarm Receiving Software Simulation (ARS_simulation.py): simulates an industrial ARS 
+    ** Alarm Receiving Software Simulation (ARS_simulation.py): simulates an industrial ARS
 based on data measured in the production environment of the GS company group.
-    * TeaStore (teastore_simulation.py): simulates TeaStore based on a predictive model
+    ** TeaStore (teastore_simulation.py): simulates TeaStore based on a predictive model
 generated in a lab environment.
 
 ## Instructions to reproduce results in our paper
@@ -277,3 +306,8 @@ After that, plot your results:
 % python3 loadtest_plotter.py
 Path to the logfile: locust_log.log
 ```
+
+[bibliography]
+= References
+
+* [[[tomak2020,1]]](https://www.doi.org/10.1007/978-3-030-68110-4_9)
