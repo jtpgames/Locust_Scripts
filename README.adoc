@@ -74,24 +74,24 @@ In our paper, we explain, implement and evaluate improvements to the following c
 * Simulator,
 * Load Tester.
 
-For our evaluation, we use the [TeaStore benchmarking application](https://github.com/DescartesResearch/TeaStore). 
-We created a [GitHub fork](https://github.com/jtpgames/TeaStore) and modified some parameters of their logging framework to create consistent logs especially for higher intensity workloads.
+For our evaluation, we use the https://github.com/DescartesResearch/TeaStore[TeaStore benchmarking application].
+We created a GitHub fork <<teastore_fork>> and modified some parameters of their logging framework to create consistent logs especially for higher intensity workloads.
 
 This repository contains the improved Load Tester 
-whereas the Simulator and the predictive models we created can be found in [our Simulators repository](https://github.com/jtpgames/Simulators).
+whereas the Simulator and the predictive models we created can be found in our Simulators repository <<simulator_repo>>.
 The Automated Estimator Pipeline (see below) is one implementation of the remaining RAST components (including the Predictive Model Creator).
 
-Additional experimental results not published in our paper, including the Python scripts we use for similarity calculation, can be accessed in our [Datalore notebook](https://datalore.jetbrains.com/notebook/6K6VkECuLMtN5t5nSYg6WK/TVGp1egwDQlwI19astdVlM).
+Additional experimental results not published in our paper, including the Python scripts we use for similarity calculation and the validation and prediction data acquired in our experiments, can be accessed in our Datalore notebook <<datalore_notebook>>.
 
 ## Instructions for Conducting Experiments
 To conduct the experiments outlined in this paper, please follow the step-by-step instructions below:
 
 Preparations:
 
-* Clone our [TeaStore Fork](https://github.com/jtpgames/TeaStore) repository to your local machine.
+* Clone our TeaStore Fork repository <<teastore_fork>> to your local machine.
 * Build the TeaStore application and the associated Docker images by following the instructions provided by the developers. 
   You can find these instructions in the GET_STARTED.md file within the cloned repository.
-* Clone our [Simulators repository](https://github.com/jtpgames/Simulators) to your local machine.
+* Clone our Simulators repository <<simulator_repo>> to your local machine.
 * Clone the locust_scripts repository.
 
 Recommended workflow (for terminal users):
@@ -125,6 +125,8 @@ Recommended workflow (for terminal users):
 6. To modify the predictive model,
    navigate to Session (4) and follow the instructions in the README.md file within the Simulators repository.
 
+### Validation data
+The validation data as described in the paper was acquired by running a load test against the simulator with each load intensity profile. In between each load test, we copied the resulting teastore_simulation.log file and renamed it accordingly. After acquiring a log file for each load intensity profile, we used our `ResultComparer` found in our Datalore notebook <<datalore_notebook>>.
 
 # Automated Estimator Pipeline (SIMUtools 2023)
 
@@ -137,6 +139,7 @@ In his thesis, he implements and evaluates improvements to our RAST approach,
 in particular, improvements to the training process. 
 In the RAST approach, 
 the following components are of particular interest to the training process:
+
 * Log Transformer
 * Predictive Model Creator
 
@@ -262,7 +265,8 @@ you will get similar results to the ones you can find in the Folder "Tests under
 
 Results after running our scripts for about an hour:
 
-![Results](Tests_under_Fault/30.06.20.svg)
+:imagesdir: Tests_under_Fault
+image::30.06.20.svg[]
 
 ---
 
@@ -311,3 +315,6 @@ Path to the logfile: locust_log.log
 = References
 
 * [[[tomak2020,1]]](https://www.doi.org/10.1007/978-3-030-68110-4_9)
+* [[[teastore_fork]]](https://github.com/jtpgames/TeaStore)
+* [[[simulator_repo]]](https://github.com/jtpgames/Simulators)
+* [[[datalore_notebook]]](https://datalore.jetbrains.com/notebook/6K6VkECuLMtN5t5nSYg6WK/TVGp1egwDQlwI19astdVlM)
