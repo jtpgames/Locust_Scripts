@@ -246,7 +246,7 @@ class StagesShape(LoadTestShape):
 
         if self._is_warming_up:
             if run_time < 5 * 60:
-                return 50, 50
+                return 50, 5
             else:
                 if not self._is_preparing_for_regular_load:
                     gevent.spawn_later(5, lambda: reset_teastore_logs(locust_environment))
