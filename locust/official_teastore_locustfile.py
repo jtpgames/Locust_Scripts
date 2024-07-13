@@ -41,6 +41,10 @@ USE_BUY_PROFILE = False
 # to warm up the JVM as much as possible (default Tier4Threshold)
 WITH_WARMUP_PHASE = False
 
+wp = os.environ.get('WARMUP_PHASE')
+if wp is not None:
+    WITH_WARMUP_PHASE = eval(wp)
+
 # set root logger level
 logging.getLogger().setLevel(logging.INFO)
 
