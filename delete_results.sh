@@ -8,6 +8,7 @@ rm teastore-cmd_simulation*.log -fv
 rm *.sar -fv
 rm *.svg -fv
 rm *.out -fv
+rm mininet/*.out -fv
 rm pox_output.log -fv
 rm switch_flow_stats*.json -fv
 rm Simulators/teastore_simulation*.log -fv
