@@ -41,7 +41,7 @@ class AlarmDevice(RepeatingHttpLocust):
 
         json_msg = {
             'id': "070010",
-            'body': "alarm"
+            'body': "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
         }
 
         json_string = json.dumps(json_msg)
