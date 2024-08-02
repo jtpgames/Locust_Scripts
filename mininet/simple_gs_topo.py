@@ -1,10 +1,15 @@
+from mininet.node import Node
+# noinspection PyPackageRequirements
 from mininet.topo import Topo
+# noinspection PyPackageRequirements
 from mininet.cli import CLI
+# noinspection PyPackageRequirements
 from mininet.log import lg, info
 
 import time
 
-class SimpleTopo( Topo ):
+
+class SimpleTopo(Topo):
     """
         host (AS)
         --- switch (rounter at customer's home) --- (ISP router cust)
@@ -12,16 +17,15 @@ class SimpleTopo( Topo ):
         --- host (ARC)
     """
 
-    def build( self ):
-
+    def build(self):
         # Add hosts and switches
-        alarm_system = self.addHost( 'h_as' )
-        alarm_receiving_centre = self.addHost( 'h_arc' )
-        
-        customerSwitch = self.addSwitch( 's1' )
-        ispCustomerSwitch = self.addSwitch( 's2' )
-        ispAPSwitch = self.addSwitch( 's3' )
-        apSwitch = self.addSwitch( 's4' )
+        alarm_system = self.addHost('h_as')
+        alarm_receiving_centre = self.addHost('h_arc')
+
+        customerSwitch = self.addSwitch('s1')
+        ispCustomerSwitch = self.addSwitch('s2')
+        ispAPSwitch = self.addSwitch('s3')
+        apSwitch = self.addSwitch('s4')
 
         # Add links
 
@@ -32,36 +36,36 @@ class SimpleTopo( Topo ):
         #self.addLink( customerSwitch, apSwitch, **linkopts )
         #linkopts = {'delay':'10ms' }
         #self.addLink( apSwitch, alarm_receiving_centre, **linkopts )
-        
+
         # self.addLink( alarm_system, customerSwitch) 
         # self.addLink( customerSwitch, apSwitch)
         # self.addLink( apSwitch, alarm_receiving_centre)
 
         # return
         # --
-        
+
         # Simulate production system
         # customer has 1 Gigabit Ethernet (GbE) connection to his router 
-        linkopts = {'bw':1000, 'delay':'0.45ms' }
-        self.addLink( alarm_system, customerSwitch, **linkopts )
+        linkopts = {'bw': 1000, 'delay': '0.45ms'}
+        self.addLink(alarm_system, customerSwitch, **linkopts)
 
         # customer has VDSL 100 (100 MBit Download, 30 MBit Upload) 
-        linkopts = {'bw':30, 'delay':'2.4ms', 'jitter': '5.2ms' }
-        self.addLink( customerSwitch, ispCustomerSwitch, **linkopts )
-        
+        linkopts = {'bw': 30, 'delay': '2.4ms', 'jitter': '5.2ms'}
+        self.addLink(customerSwitch, ispCustomerSwitch, **linkopts)
+
         # ISP Interlink (10 GbE connection) 
         # 1 Gigabit is the maximum bandwidth allowed by mininet
-        linkopts = {'bw':1000, 'delay':'13.3ms', 'jitter': '3.15ms' }
-        self.addLink( ispCustomerSwitch, ispAPSwitch, **linkopts )
-        
+        linkopts = {'bw': 1000, 'delay': '13.3ms', 'jitter': '3.15ms'}
+        self.addLink(ispCustomerSwitch, ispAPSwitch, **linkopts)
+
         # alarm provider sadly does NOT have SDSL, rather LACP-based Uplinks: VDSL100, VDSL50 combined
-        linkopts = {'bw':50, 'delay':'7.97ms', 'jitter': '2.9ms' }
-        self.addLink( ispAPSwitch, apSwitch, **linkopts )
+        linkopts = {'bw': 50, 'delay': '7.97ms', 'jitter': '2.9ms'}
+        self.addLink(ispAPSwitch, apSwitch, **linkopts)
 
         # alarm provider has 2 GbE connection to his router
         # 1 Gigabit is the maximum bandwidth allowed by mininet
-        linkopts = {'bw':1000, 'delay':'0.19ms', 'jitter': '0.06ms' }
-        self.addLink( apSwitch, alarm_receiving_centre, **linkopts )
+        linkopts = {'bw': 1000, 'delay': '0.19ms', 'jitter': '0.06ms'}
+        self.addLink(apSwitch, alarm_receiving_centre, **linkopts)
 
 
 python_configured_hosts = []
@@ -90,26 +94,30 @@ def startars(self, args):
 
     print(self)
     print(args)
-    
+
     net = self.mn
-    start_ARS(net)
+    start_ARS(net, "", 1, 0)
 
 
-def start_ARS(net):
+def start_ARS(net, simulator_dir, model_to_use, corr_max):
     """Starts the ARS on the ARC host"""
 
     arc = net.get('h_arc')
-    setup_python_on_host(arc) 
+    setup_python_on_host(arc)
 
     arc.cmd('./start_sysstat.sh arc')
     time.sleep(5)
-    
-    print("ARC: Starting ARS.")
-    arc.cmd('python ARS_simulation.py &> mininet/ars.out &')
-    # arc.cmd('cd ../Simulators')
-    # print("ARC: Current Working Directory:")
-    # arc.cmdPrint('pwd')
-    # arc.cmdPrint('java -jar build/libs/Rast-Simulator-all.jar &> /dev/null &')
+
+    if simulator_dir == "":
+        print("ARC: Starting ARS.")
+        arc.cmd('python ARS_simulation.py &> mininet/ars.out &')
+    else:
+        arc.cmd(f'cd {simulator_dir}')
+        print("ARC: Current Working Directory:")
+        arc.cmdPrint('pwd')
+        arc.cmdPrint('java -jar build/libs/Rast-Simulator-all.jar &> /dev/null &')
+        time.sleep(1)
+        arc.cmdPrint('chmod 666 ars_simulation.log')
 
 
 def startprodworkload(self, args):
@@ -124,7 +132,7 @@ def start_production_workload(net):
 
     h_as = net.get('h_as')
     arc = net.get('h_arc')
-    
+
     setup_python_on_host(h_as)
 
     h_as.cmd('./start_sysstat.sh alarm_system')
@@ -153,7 +161,8 @@ def start_alarm_system_workload(net):
 
     setup_python_on_host(h_as)
 
-    cmd = 'python locust-parameter-variation.py locust/gen_gs_alarm_device_workload.py -u http://{}:1337 -p'.format(arc.IP())
+    cmd = 'python locust-parameter-variation.py locust/gen_gs_alarm_device_workload.py -u http://{}:1337 -p'.format(
+        arc.IP())
     print("AS: Starting Alarm Device Workload ...")
     print(cmd)
 
@@ -169,10 +178,28 @@ def stop_workloads(self, args):
 
     h_as.cmd('killall locust')
 
-def LocustTest(net):
-    lg.setLogLevel( 'info')
 
-    start_ARS(net)
+def LocustTest(net, simulator_dir, model_to_use, corr_max):
+    lg.setLogLevel('info')
+
+    # # Add a NAT node to provide internet access to ARC host node
+    # nat = net.get('nat0')
+    # apSwitch = net.get('s4')
+    # print(nat)
+    # net.addLink(nat, apSwitch)
+    #
+    # # Enable IP forwarding on the Mininet host machine
+    # root = Node('root', inNamespace=False)
+    # root.cmd('sysctl -w net.ipv4.ip_forward=1')
+    #
+    # # Set up NAT rules
+    # host_network_intf = "wlp0s20f3"
+    #
+    # root.cmd(f'iptables -t nat -A POSTROUTING -o {host_network_intf} -j MASQUERADE')
+    # root.cmd(f'iptables -A FORWARD -i {host_network_intf} -o nat0 -m state --state RELATED,ESTABLISHED -j ACCEPT')
+    # root.cmd(f'iptables -A FORWARD -i nat0 -o {host_network_intf} -j ACCEPT')
+
+    start_ARS(net, simulator_dir, model_to_use, corr_max)
     time.sleep(5)
     start_production_workload(net)
     time.sleep(1)
@@ -182,8 +209,9 @@ def LocustTest(net):
     CLI(net)
     # net.stop()
 
-topos = { 'simple-topo': ( lambda: SimpleTopo() ) }
-tests = { 'LocustTest': LocustTest }
+
+topos = {'simple-topo': (lambda: SimpleTopo())}
+tests = {'LocustTest': LocustTest}
 
 CLI.do_startars = startars
 CLI.do_startprodworkload = startprodworkload
