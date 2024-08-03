@@ -3,7 +3,6 @@ import argparse
 import csv
 import glob
 
-import platform
 import os
 import logging
 import time
@@ -12,35 +11,6 @@ from common.Common import call_locust_with, call_locust_and_distribute_work
 
 input_args = argparse.Namespace()
 
-plt = platform.system()
-
-if plt != "Windows":
-    import readline
-
-
-def complete_python(text, state):
-    # replace ~ with the user's home dir. See https://docs.python.org/2/library/os.path.html
-    if '~' in text:
-        text = os.path.expanduser('~')
-
-    # autocomplete directories with having a trailing slash
-    if os.path.isdir(text):
-        text += '/'
-
-    return [x for x in glob.glob(text + '*.py')][state]
-
-
-#if plt != "Windows":
-#    readline.set_completer_delims(' \t\n;')
-#    readline.parse_and_bind("tab: complete")
-#    readline.set_completer(complete_python)
-
-#locust_script = input('Path to the Locust script: ')
-
-#if plt != "Windows":
-#    readline.set_completer(None)
-
-# url = input('URL of the software to test: ')
 
 url = "http://localhost:1337"
 
@@ -109,7 +79,54 @@ def config_complies_with_real_time_requirements(num_clients):
     return is_compliant
 
 
+def get_next_number_of_clients_for_load_test(previous_number_of_clients: int, multiplier: int, num_failures: int) -> int:
+    adjusted_multiplier = multiplier / max(num_failures * 10, 1)
+
+    if adjusted_multiplier <= 10:
+        return 0
+
+    num_clients = previous_number_of_clients + adjusted_multiplier
+
+    return int(num_clients)
+
+
 def parameter_variation_loop(multiplier: int = 5000):
+    logger = logging.getLogger('parameter_variation_loop')
+
+    last_succeeded_num_clients = 0
+    last_failed_num_clients = 0
+    num_failures = 0
+
+    logger.info(f"Starting performance test.")
+
+    is_first_run = True
+    while True:
+        if not is_first_run:
+            logger.info("Sleeping for 1 min ...")
+            time.sleep(60)
+        is_first_run = False
+
+        # start with multiplier clients, then increase linearly (2*multiplier, ... x*multiplier)
+        # until the number of clients exceeds the threshold.
+        # After that, start from the last working number of clients and keep increasing with one tenth of the multiplier (x*multiplier + y*multiplier/10)
+        num_clients = get_next_number_of_clients_for_load_test(last_succeeded_num_clients, multiplier, num_failures)
+        if num_clients == 0:
+            break
+
+        call_locust_and_distribute_work(locust_script, url, num_clients, runtime_in_min=1, use_load_test_shape=False)
+
+        read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv", num_clients)
+
+        if config_complies_with_real_time_requirements(num_clients):
+            last_succeeded_num_clients = num_clients
+        else:
+            num_failures += 1
+            last_failed_num_clients = num_clients
+
+    logger.info(f"Finished performance test. System failed at {last_failed_num_clients}")
+
+
+def parameter_variation_loop_old(multiplier: int = 5000):
     logger = logging.getLogger('parameter_variation_loop')
 
     num_clients = 1
