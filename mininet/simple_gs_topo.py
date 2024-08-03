@@ -161,7 +161,7 @@ def start_alarm_system_workload(net):
 
     setup_python_on_host(h_as)
 
-    cmd = 'python locust-parameter-variation.py locust/gen_gs_alarm_device_workload.py -u http://{}:1337 -p'.format(
+    cmd = 'python locust-parameter-variation.py locust/gen_gs_alarm_device_workload.py -u http://{}:1337 -m 500 -p'.format(
         arc.IP())
     print("AS: Starting Alarm Device Workload ...")
     print(cmd)
