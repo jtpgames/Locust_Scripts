@@ -115,7 +115,7 @@ def start_ARS(net, simulator_dir, model_to_use, corr_max):
         arc.cmd(f'cd {simulator_dir}')
         print("ARC: Current Working Directory:")
         arc.cmdPrint('pwd')
-        arc.cmdPrint('java -jar build/libs/Rast-Simulator-all.jar &> /dev/null &')
+        arc.cmdPrint(f'java -jar build/libs/Rast-Simulator-all.jar -m {model_to_use} -c {corr_max} &> /dev/null &')
         time.sleep(1)
         arc.cmdPrint('chmod 666 ars_simulation.log')
 
