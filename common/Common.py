@@ -41,7 +41,7 @@ def read_response_times_from_locust_logfile(path: str):
     return response_times
 
 
-def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min, use_load_test_shape=True):
+def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min, use_load_test_shape=True, num_workers=5):
     logger = logging.getLogger('call_locust_and_distribute_work')
 
     params = f"-f {locust_script} "
@@ -54,7 +54,6 @@ def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min,
     if path.exists("venv/bin/locust"):
         locust_path = "venv/bin/locust"
 
-    num_workers = 5
     for i in range(0, num_workers):
         logger.info(f"Starting {i+1}. worker")
 
