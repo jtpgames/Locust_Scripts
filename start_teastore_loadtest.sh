@@ -11,4 +11,4 @@ fi
 
 echo "Using URL: $ip_address"
 
-python3 executor.py locust/official_teastore_locustfile.py -u "$ip_address"
+python3 executor.py locust/official_teastore_locustfile.py -u "$ip_address" -s
