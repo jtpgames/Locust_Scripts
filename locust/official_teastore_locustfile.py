@@ -33,6 +33,10 @@ from locust.contrib.fasthttp import FastHttpUser
 
 import requests
 
+# set this number to scale the load defined in the load intensity profiles, e.g.,
+# value of 2.0 doubles the load, 0.5 halves the load.
+LOAD_SCALING_FACTOR = 1.0
+
 # Buy profile is not recommended by the TeaStore developers because it performs changes to the database
 USE_BUY_PROFILE = False
 
@@ -209,6 +213,8 @@ class StagesShape(LoadTestShape):
             for row in reader:
                 time = float(row['time'])
                 rps = round(float(row['rps']))
+
+                rps *= LOAD_SCALING_FACTOR
 
                 if rps == 0:
                     rps = 1
