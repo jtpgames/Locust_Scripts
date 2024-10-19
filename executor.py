@@ -161,8 +161,8 @@ def main(
         if silent is False:
             read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv")
 
-        if "teastore" in locust_script:
-            analyse_teastore_response_times()
+            if "teastore" in locust_script:
+                analyse_teastore_response_times()
 
         if pipe_fd != 0:
             os.write(pipe_fd, "FIN".encode())
