@@ -37,6 +37,12 @@ import requests
 # value of 2.0 doubles the load, 0.5 halves the load.
 LOAD_SCALING_FACTOR = 1.0
 
+# set this number to scale the time of the load intensity profiles, e.g.,
+# value of 2.0 doubles the time from 120 seconds to 240 seconds total runtime
+# beware, that setting this value to low might cause problems, like the amount of users to spawn for each step exceeds#
+# the spawn_rate per second leading to inconclusive load tests.
+TIME_SCALING_FACTOR = 1.0
+
 # Buy profile is not recommended by the TeaStore developers because it performs changes to the database
 USE_BUY_PROFILE = False
 
@@ -215,6 +221,7 @@ class StagesShape(LoadTestShape):
                 rps = round(float(row['rps']))
 
                 rps *= LOAD_SCALING_FACTOR
+                time *= TIME_SCALING_FACTOR
 
                 if rps == 0:
                     rps = 1
