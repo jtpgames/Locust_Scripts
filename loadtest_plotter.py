@@ -1,11 +1,11 @@
 import csv
-import glob
-import os
 from datetime import datetime
+from pathlib import Path
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-import readline
+import typer
+from typing_extensions import Annotated
 
 from rast_common.main.FileUtils import readResponseTimesFromLogFile
 
@@ -170,41 +170,45 @@ def plot_response_times(response_times, logfile):
     plt.legend(loc='lower right')
 
 
-def complete(text, state):
-    # replace ~ with the user's home dir. See https://docs.python.org/2/library/os.path.html
-    if '~' in text:
-        text = os.path.expanduser('~')
+def main(
+    logfile: Annotated[Path, typer.Argument(..., help="Path to the log file to analyze")]
+) -> None:
+    """Load test plotter - analyze and plot response times from log files."""
+    if not logfile.exists():
+        typer.echo(f"Error: Log file '{logfile}' does not exist.", err=True)
+        raise typer.Exit(1)
+    
+    if not logfile.is_file():
+        typer.echo(f"Error: '{logfile}' is not a file.", err=True)
+        raise typer.Exit(1)
+    
+    try:
+        response_times = readResponseTimesFromLogFile(str(logfile))
+        
+        if len(response_times) > 0:
+            plot_response_times(response_times, str(logfile))
+        else:
+            readMeasurementsFromLogFileAndAppendToList(logfile)
+            plt.plot(num_clients, avg_time_allowed, 'y--', label='Average time allowed')
+            plt.plot(num_clients, max_time_allowed, 'r--', label='Maximum time allowed')
+            # plt.plot(num_clients, min_response_time, label='min')
+            plt.plot(num_clients, average_response_time, label='avg')
+            plt.plot(num_clients, max_response_time, label='max')
 
-    # autocomplete directories with having a trailing slash
-    if os.path.isdir(text):
-        text += '/'
+            plt.xlabel('Number of alarm devices')
+            plt.ylabel('Response time in s')
+            plt.legend(loc='upper left')
+            plt.yscale('log')
+            plt.ylim(0.001, 1000)
+            plt.savefig('Response_times.pdf')
+            # plt.grid()
+        
+        plt.show()
+        
+    except Exception as e:
+        typer.echo(f"Error processing log file: {e}", err=True)
+        raise typer.Exit(1)
 
-    return [x for x in glob.glob(text + '*.log')][state]
 
-
-readline.set_completer_delims(' \t\n;')
-readline.parse_and_bind("tab: complete")
-readline.set_completer(complete)
-logfile = input('Path to the logfile: ')
-
-response_times = readResponseTimesFromLogFile(logfile)
-if len(response_times) > 0:
-    plot_response_times(response_times, logfile)
-else:
-    readMeasurementsFromLogFileAndAppendToList(logfile)
-
-    plt.plot(num_clients, avg_time_allowed, 'y--', label='Average time allowed')
-    plt.plot(num_clients, max_time_allowed, 'r--', label='Maximum time allowed')
-    # plt.plot(num_clients, min_response_time, label='min')
-    plt.plot(num_clients, average_response_time, label='avg')
-    plt.plot(num_clients, max_response_time, label='max')
-
-    plt.xlabel('Number of alarm devices')
-    plt.ylabel('Response time in s')
-    plt.legend(loc='upper left')
-    plt.yscale('log')
-    plt.ylim(0.001, 1000)
-    plt.savefig('Response_times.pdf')
-    # plt.grid()
-
-plt.show()
+if __name__ == "__main__":
+    typer.run(main)
