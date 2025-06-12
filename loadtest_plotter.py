@@ -1,6 +1,8 @@
 import csv
 from datetime import datetime
 from pathlib import Path
+import re
+from typing import Optional
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -56,75 +58,107 @@ def readMeasurementsFromLogFileAndAppendToList(path):
             print(clients, avg, max)
 
 
-def plot_response_times(response_times, logfile):
+def plot_response_times(response_times, fault_injector_logfile: Optional[Path]):
     dates = list(response_times.keys())
     times = list(response_times.values())
 
     plt.plot(dates, times, 'o', color='black', label='Response time')
 
-    stops1 = [
-        datetime(2020, 5, 5, 9, 25, 26),
-        datetime(2020, 5, 5, 9, 26, 26),
-        datetime(2020, 5, 5, 9, 27, 37)
-    ]
+    def read_lines_with_ARS_faults(file_path: Path) -> list[str]:
+        lines = []
+        print("read_lines_with_ARS_faults")
+        with file_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                if "ARS faulted" in line or "ARS recovered" in line:
+                    lines.append(line.rstrip('\n'))
+        return lines
 
-    starts1 = [
-        datetime(2020, 5, 5, 9, 25, 59),
-        datetime(2020, 5, 5, 9, 27, 1),
-        datetime(2020, 5, 5, 9, 28, 16)
-    ]
+    def extract_datetimes(lines: list[str]) -> tuple[list[datetime], list[datetime]]:
+        print("extract_datetimes")
+        stop_pattern = re.compile(r"(?<=ARS faulted @)[^;]*")
+        start_pattern = re.compile(r"(?<=ARS recovered @).*")
 
-    stops2 = [
-        datetime(2020, 5, 5, 11, 26, 28),
-        datetime(2020, 5, 5, 11, 28, 2)
-    ]
+        stops = []
+        starts = []
 
-    starts2 = [
-        datetime(2020, 5, 5, 11, 27, 6),
-        datetime(2020, 5, 5, 11, 28, 36)
-    ]
+        def get_timestamp_from(string):
+            format_string = '%Y-%m-%d %H:%M:%S.%f'
 
-    stops3 = [
-        datetime(2020, 5, 5, 12, 20, 23),
-        datetime(2020, 5, 5, 12, 21, 36),
-        datetime(2020, 5, 5, 12, 22, 42)
-    ]
+            return datetime.strptime(
+                string,
+                format_string
+            )
 
-    starts3 = [
-        datetime(2020, 5, 5, 12, 21, 3),
-        datetime(2020, 5, 5, 12, 22, 9),
-        datetime(2020, 5, 5, 12, 23, 14)
-    ]
 
-    allStops = stops1 + stops2 + stops3
-    allStarts = starts1 + starts2 + starts3
+        for line in lines:
+            stop_match = stop_pattern.search(line)
+            if stop_match:
+                print(f"stop: {stop_match.group()}")
+                dt = get_timestamp_from(stop_match.group())
+                stops.append(dt)
+                continue  # avoid matching both in one line
 
-    print("-- Stop-Start --")
-    for i in range(len(allStops)):
-        diff = abs(allStops[i] - allStarts[i])
-        print("{} - {} = {}".format(allStops[i].time(), allStarts[i].time(), diff.total_seconds()))
-    print("--")
+            start_match = start_pattern.search(line)
+            if start_match:
+                print(f"start: {start_match.group()}")
+                dt = get_timestamp_from(start_match.group())
+                starts.append(dt)
 
-    # if '_1' in logfile:
-    #     for d in stops1:
-    #         plt.axvline(d, color='orange')
-    #     for d in starts1:
-    #         plt.axvline(d, color='green')
-    # elif '_2' in logfile:
-    #     for d in stops2:
-    #         plt.axvline(d, color='orange')
-    #     for d in starts2:
-    #         plt.axvline(d, color='green')
-    # elif '_3' in logfile:
-    #     for d in stops3:
-    #         plt.axvline(d, color='orange')
-    #     for d in starts3:
-    #         plt.axvline(d, color='green')
-    # else:
-    #     for d in allStops:
-    #         plt.axvline(d, color='orange')
-    #     for d in allStarts:
-    #         plt.axvline(d, color='green')
+        return stops, starts
+
+    if fault_injector_logfile is not None:
+        relevant_lines = read_lines_with_ARS_faults(fault_injector_logfile)
+        stops, starts = extract_datetimes(relevant_lines)
+    
+        # stops1 = [
+        #     datetime(2020, 5, 5, 9, 25, 26),
+        #     datetime(2020, 5, 5, 9, 26, 26),
+        #     datetime(2020, 5, 5, 9, 27, 37)
+        # ]
+        #
+        # starts1 = [
+        #     datetime(2020, 5, 5, 9, 25, 59),
+        #     datetime(2020, 5, 5, 9, 27, 1),
+        #     datetime(2020, 5, 5, 9, 28, 16)
+        # ]
+        #
+        # stops2 = [
+        #     datetime(2020, 5, 5, 11, 26, 28),
+        #     datetime(2020, 5, 5, 11, 28, 2)
+        # ]
+        #
+        # starts2 = [
+        #     datetime(2020, 5, 5, 11, 27, 6),
+        #     datetime(2020, 5, 5, 11, 28, 36)
+        # ]
+        #
+        # stops3 = [
+        #     datetime(2020, 5, 5, 12, 20, 23),
+        #     datetime(2020, 5, 5, 12, 21, 36),
+        #     datetime(2020, 5, 5, 12, 22, 42)
+        # ]
+        #
+        # starts3 = [
+        #     datetime(2020, 5, 5, 12, 21, 3),
+        #     datetime(2020, 5, 5, 12, 22, 9),
+        #     datetime(2020, 5, 5, 12, 23, 14)
+        # ]
+
+        # allStops = stops1 + stops2 + stops3
+        # allStarts = starts1 + starts2 + starts3
+        allStops = stops
+        allStarts = starts
+
+        print("-- Stop-Start --")
+        for i in range(len(allStops)):
+            diff = abs(allStops[i] - allStarts[i])
+            print("{} - {} = {}".format(allStops[i].time(), allStarts[i].time(), diff.total_seconds()))
+        print("--")
+
+        for d in allStops:
+            plt.axvline(d, color='orange')
+        for d in allStarts:
+            plt.axvline(d, color='green')
 
     print("-- Response times as measured by Locust sorted by value and then time --")
     max_response_times = sorted(response_times, key=response_times.get, reverse=True)[:8]
@@ -171,22 +205,20 @@ def plot_response_times(response_times, logfile):
 
 
 def main(
-    logfile: Annotated[Path, typer.Argument(..., help="Path to the log file to analyze")]
+    logfile: Annotated[Path, typer.Argument(..., help="Path to the log file to analyze", exists=True, readable=True)],
+    fault_injector_logfile: Annotated[Path | None, typer.Option("-f", "--fault-injector-logfile", 
+                                                                help="Path to the log file of the fault injector (optional)", 
+                                                                exists=True, 
+                                                                readable=True)
+                                      ] = None,
 ) -> None:
     """Load test plotter - analyze and plot response times from log files."""
-    if not logfile.exists():
-        typer.echo(f"Error: Log file '{logfile}' does not exist.", err=True)
-        raise typer.Exit(1)
-    
-    if not logfile.is_file():
-        typer.echo(f"Error: '{logfile}' is not a file.", err=True)
-        raise typer.Exit(1)
-    
+
     try:
         response_times = readResponseTimesFromLogFile(str(logfile))
         
         if len(response_times) > 0:
-            plot_response_times(response_times, str(logfile))
+            plot_response_times(response_times, fault_injector_logfile)
         else:
             readMeasurementsFromLogFileAndAppendToList(logfile)
             plt.plot(num_clients, avg_time_allowed, 'y--', label='Average time allowed')
