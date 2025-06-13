@@ -126,6 +126,33 @@ def parameter_variation_loop(multiplier: int = 5000):
     logger.info(f"Finished performance test. System failed at {last_failed_num_clients}")
 
 
+def parameter_variation_loop_with_limit(multiplier: int = 5000, limit: int = 20000):
+    logger = logging.getLogger('parameter_variation_loop_with_limit')
+
+    num_clients = 1
+    x = 1
+
+    logger.info(f"Starting performance test.")
+
+    is_first_run = True
+    while config_complies_with_real_time_requirements(num_clients):
+        if not is_first_run:
+            logger.info("Sleeping for 1 min ...")
+            time.sleep(60)
+        is_first_run = False
+
+        num_clients = max(x * multiplier, 1)
+
+        if num_clients >= limit:
+            break
+
+        call_locust_and_distribute_work(locust_script, url, num_clients, runtime_in_min=1, use_load_test_shape=False, num_workers=1)
+
+        read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv", num_clients)
+
+    logger.info(f"Finished performance test. System failed at {num_clients}")
+
+
 def parameter_variation_loop_old(multiplier: int = 5000):
     logger = logging.getLogger('parameter_variation_loop')
 
@@ -154,7 +181,7 @@ def parameter_variation_loop_old(multiplier: int = 5000):
         else:
             x += 1
 
-        call_locust_and_distribute_work(locust_script, url, num_clients, runtime_in_min=10, use_load_test_shape=False)
+        call_locust_and_distribute_work(locust_script, url, num_clients, runtime_in_min=1, use_load_test_shape=False, num_workers=1)
         # call_locust_with(locust_script, url, num_clients, runtime_in_min=10, omit_csv_files=True)
 
         read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv", num_clients)
