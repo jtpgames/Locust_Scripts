@@ -26,7 +26,8 @@ class RepeatingClient(ABC):
     def send(self, endpoint, data=None):
         logger = logging.getLogger('RepeatingClient')
 
-        url = self.base_url + endpoint
+        index_base_url_to_use = 0
+        base_urls = [url.strip() for url in self.base_url.split(",")] if "," in self.base_url else [self.base_url]
 
         request_id = uuid1().int
 
@@ -40,6 +41,7 @@ class RepeatingClient(ABC):
         while not successfully_sent:
             # noinspection PyBroadException
             try:
+                url = base_urls[index_base_url_to_use] + endpoint
                 number_of_tries += 1
                 logger.info("[%i] (%i) Sending to %s", self.ID, request_id, url)
                 response, successfully_sent = self.send_impl(url, data, request_id=request_id)
@@ -48,14 +50,24 @@ class RepeatingClient(ABC):
                 logger.error("[%i] (%i) %i. try: Exception occurred: %s", self.ID,  request_id, number_of_tries, str(e))
 
             if not successfully_sent:
-                logger.warning(
-                    "[%i] (%i) %i. try: Send failed. Repeating in %i s",
-                    self.ID,
-                    request_id,
-                    number_of_tries,
-                    self.parent_user.wait_time()
-                )
-                self.parent_user.wait()
+                index_base_url_to_use += 1
+                if len(base_urls) > index_base_url_to_use:
+                    logger.warning(
+                        "[%i] (%i) %i. try: Send failed. Sending to the next url",
+                        self.ID,
+                        request_id,
+                        number_of_tries
+                    )
+                else:
+                    index_base_url_to_use = 0
+                    logger.warning(
+                        "[%i] (%i) %i. try: Send failed. Repeating in %i s",
+                        self.ID,
+                        request_id,
+                        number_of_tries,
+                        self.parent_user.wait_time()
+                    )
+                    self.parent_user.wait()
 
         stopwatch.stop()
         self.parent_user.wait_time = original_wait_time
