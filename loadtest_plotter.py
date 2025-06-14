@@ -58,7 +58,7 @@ def readMeasurementsFromLogFileAndAppendToList(path):
             print(clients, avg, max)
 
 
-def plot_response_times(response_times, fault_injector_logfile: Optional[Path]):
+def plot_response_times(response_times, fault_injector_logfiles: list[Path] = []):
     dates = list(response_times.keys())
     times = list(response_times.values())
 
@@ -106,48 +106,15 @@ def plot_response_times(response_times, fault_injector_logfile: Optional[Path]):
 
         return stops, starts
 
-    if fault_injector_logfile is not None:
-        relevant_lines = read_lines_with_ARS_faults(fault_injector_logfile)
-        stops, starts = extract_datetimes(relevant_lines)
+    if len(fault_injector_logfiles) > 0:
+        allStops = []
+        allStarts = []
+        for fault_injector_logfile in fault_injector_logfiles:
+            relevant_lines = read_lines_with_ARS_faults(fault_injector_logfile)
+            stops, starts = extract_datetimes(relevant_lines)
     
-        # stops1 = [
-        #     datetime(2020, 5, 5, 9, 25, 26),
-        #     datetime(2020, 5, 5, 9, 26, 26),
-        #     datetime(2020, 5, 5, 9, 27, 37)
-        # ]
-        #
-        # starts1 = [
-        #     datetime(2020, 5, 5, 9, 25, 59),
-        #     datetime(2020, 5, 5, 9, 27, 1),
-        #     datetime(2020, 5, 5, 9, 28, 16)
-        # ]
-        #
-        # stops2 = [
-        #     datetime(2020, 5, 5, 11, 26, 28),
-        #     datetime(2020, 5, 5, 11, 28, 2)
-        # ]
-        #
-        # starts2 = [
-        #     datetime(2020, 5, 5, 11, 27, 6),
-        #     datetime(2020, 5, 5, 11, 28, 36)
-        # ]
-        #
-        # stops3 = [
-        #     datetime(2020, 5, 5, 12, 20, 23),
-        #     datetime(2020, 5, 5, 12, 21, 36),
-        #     datetime(2020, 5, 5, 12, 22, 42)
-        # ]
-        #
-        # starts3 = [
-        #     datetime(2020, 5, 5, 12, 21, 3),
-        #     datetime(2020, 5, 5, 12, 22, 9),
-        #     datetime(2020, 5, 5, 12, 23, 14)
-        # ]
-
-        # allStops = stops1 + stops2 + stops3
-        # allStarts = starts1 + starts2 + starts3
-        allStops = stops
-        allStarts = starts
+            allStops.extend(stops)
+            allStarts.extend(starts)
 
         print("-- Stop-Start --")
         for i in range(len(allStops)):
@@ -205,12 +172,18 @@ def plot_response_times(response_times, fault_injector_logfile: Optional[Path]):
 
 
 def main(
-    logfile: Annotated[Path, typer.Argument(..., help="Path to the log file to analyze", exists=True, readable=True)],
-    fault_injector_logfile: Annotated[Path | None, typer.Option("-f", "--fault-injector-logfile", 
-                                                                help="Path to the log file of the fault injector (optional)", 
-                                                                exists=True, 
-                                                                readable=True)
-                                      ] = None,
+    logfile: Annotated[
+        Path,
+        typer.Argument(..., help="Path to the log file to analyze", exists=True, readable=True)
+    ],
+    fault_injector_logfiles: Annotated[
+        list[Path],
+        typer.Argument(
+            help="Zero or more fault injector log files (optional, can pass multiple)",
+            exists=True,
+            readable=True
+        )
+    ],
 ) -> None:
     """Load test plotter - analyze and plot response times from log files."""
 
@@ -218,7 +191,7 @@ def main(
         response_times = readResponseTimesFromLogFile(str(logfile))
         
         if len(response_times) > 0:
-            plot_response_times(response_times, fault_injector_logfile)
+            plot_response_times(response_times, fault_injector_logfiles)
         else:
             readMeasurementsFromLogFileAndAppendToList(logfile)
             plt.plot(num_clients, avg_time_allowed, 'y--', label='Average time allowed')
