@@ -126,7 +126,7 @@ def parameter_variation_loop(multiplier: int = 5000):
     logger.info(f"Finished performance test. System failed at {last_failed_num_clients}")
 
 
-def parameter_variation_loop_with_limit(multiplier: int = 5000, limit: int = 20000):
+def parameter_variation_loop_with_limit(multiplier: int = 5000, limit: int = 2000):
     logger = logging.getLogger('parameter_variation_loop_with_limit')
 
     num_clients = 1
@@ -142,6 +142,7 @@ def parameter_variation_loop_with_limit(multiplier: int = 5000, limit: int = 200
         is_first_run = False
 
         num_clients = max(x * multiplier, 1)
+        x += 1
 
         if num_clients >= limit:
             break
