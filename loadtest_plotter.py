@@ -107,25 +107,23 @@ def plot_response_times(response_times, fault_injector_logfiles: list[Path] = []
         return stops, starts
 
     if len(fault_injector_logfiles) > 0:
-        allStops = []
-        allStarts = []
         for fault_injector_logfile in fault_injector_logfiles:
             relevant_lines = read_lines_with_ARS_faults(fault_injector_logfile)
             stops, starts = extract_datetimes(relevant_lines)
     
-            allStops.extend(stops)
-            allStarts.extend(starts)
+            print("-- Stop-Start --")
+            for i in range(len(stops)):
+                if i >= len(starts):
+                    continue
 
-        print("-- Stop-Start --")
-        for i in range(len(allStops)):
-            diff = abs(allStops[i] - allStarts[i])
-            print("{} - {} = {}".format(allStops[i].time(), allStarts[i].time(), diff.total_seconds()))
-        print("--")
+                diff = abs(stops[i] - starts[i])
+                print("{} - {} = {}".format(stops[i].time(), starts[i].time(), diff.total_seconds()))
+            print("--")
 
-        for d in allStops:
-            plt.axvline(d, color='orange')
-        for d in allStarts:
-            plt.axvline(d, color='green')
+            for d in stops:
+                plt.axvline(d, color='orange')
+            for d in starts:
+                plt.axvline(d, color='green')
 
     print("-- Response times as measured by Locust sorted by value and then time --")
     max_response_times = sorted(response_times, key=response_times.get, reverse=True)[:8]
