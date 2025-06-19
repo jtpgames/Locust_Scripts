@@ -106,8 +106,8 @@ class RepeatingHttpxClient(RepeatingClient):
         RepeatingHttpxClient.LOGGER.info("POST")
         headers = {"Request-Id": f"{request_id}"}
         response = RepeatingHttpxClient.CLIENT.post(url, json=data, headers=headers, timeout=RepeatingHttpxClient.REQUEST_TIMEOUT)
-        RepeatingHttpxClient.LOGGER.info("Response: %s", response.status_code)
-        RepeatingHttpxClient.LOGGER.info("HTTP version: %s", response.http_version)
+        RepeatingHttpxClient.LOGGER.info("[%i] (%i) Response: %s", self.ID, request_id, response.status_code)
+        RepeatingHttpxClient.LOGGER.info("[%i] (%i) HTTP version: %s", self.ID, request_id, response.http_version)
 
         successfully_sent = 200 <= response.status_code < 300
 
