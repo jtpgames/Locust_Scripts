@@ -216,6 +216,6 @@ if __name__ == "__main__":
     if input_args.parametervariation:
         parameter_variation_loop(input_args.multiplier)
     else:
-        call_locust_with(locust_script, url, clients=1)
+        call_locust_with(locust_script, url, clients=input_args.multiplier, locust_logfile=f"locust_log_{input_args.multiplier}.log")
 
-        read_measurements_from_locust_csv_and_append_to_dictonaries("loadtest_1_clients_stats.csv", 1)
+        read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{input_args.multiplier}_clients_stats.csv", input_args.multiplier)

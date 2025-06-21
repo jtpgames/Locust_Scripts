@@ -79,7 +79,7 @@ def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min,
     )
 
 
-def call_locust_with(locust_script, url, clients, runtime_in_min=-1, omit_csv_files=False, use_load_test_shape=True):
+def call_locust_with(locust_script, url, clients, runtime_in_min=-1, omit_csv_files=False, use_load_test_shape=True, locust_logfile="locust_log.log"):
     logger = logging.getLogger('call_locust_with')
 
     logger.info("Starting locust with (%s, %s)", clients, runtime_in_min)
@@ -109,5 +109,5 @@ def call_locust_with(locust_script, url, clients, runtime_in_min=-1, omit_csv_fi
             f"env use_load_test_shape={use_load_test_shape} \
             {locust_path} {params} \
             --users={clients} --spawn-rate={clients} \
-            --logfile locust_log.log"
+            --logfile {locust_logfile}"
         )
