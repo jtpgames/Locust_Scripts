@@ -120,10 +120,15 @@ def plot_response_times(response_times, fault_injector_logfiles: list[Path] = []
                 print("{} - {} = {}".format(stops[i].time(), starts[i].time(), diff.total_seconds()))
             print("--")
 
+            if "proxy" in fault_injector_logfile.name:
+                linestyle = '-'
+            else:
+                linestyle = '--'
+
             for d in stops:
-                plt.axvline(d, color='orange')
+                plt.axvline(d, color='orange', linestyle=linestyle)
             for d in starts:
-                plt.axvline(d, color='green')
+                plt.axvline(d, color='green', linestyle=linestyle)
 
     print("-- Response times as measured by Locust sorted by value and then time --")
     max_response_times = sorted(response_times, key=response_times.get, reverse=True)[:8]
@@ -182,6 +187,18 @@ def main(
             readable=True
         )
     ],
+    target_filename_figure: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output",
+            "-o",
+            file_okay=True,
+            dir_okay=False,
+            writable=True,
+            resolve_path=True,
+            help="Optional path to output file (will be created or overwritten)"
+        )
+    ] = None
 ) -> None:
     """Load test plotter - analyze and plot response times from log files."""
 
@@ -205,9 +222,12 @@ def main(
             plt.ylim(0.001, 1000)
             plt.savefig('Response_times.pdf')
             # plt.grid()
-        
-        plt.show()
-        
+      
+        if target_filename_figure is not None:
+            plt.savefig(target_filename_figure)
+        else:
+            plt.show()
+
     except Exception as e:
         typer.echo(f"Error processing log file: {e}", err=True)
         raise typer.Exit(1)
