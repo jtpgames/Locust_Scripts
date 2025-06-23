@@ -53,11 +53,13 @@ class RepeatingClient(ABC):
                 index_base_url_to_use += 1
                 if len(base_urls) > index_base_url_to_use:
                     logger.warning(
-                        "[%i] (%i) %i. try: Send failed. Sending to the next url",
+                        "[%i] (%i) %i. try: Send failed. Sending to the next url in %i s",
                         self.ID,
                         request_id,
-                        number_of_tries
+                        number_of_tries,
+                        self.parent_user.wait_time()
                     )
+                    self.parent_user.wait()
                 else:
                     index_base_url_to_use = 0
                     logger.warning(
