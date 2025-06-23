@@ -148,15 +148,15 @@ def plot_response_times(response_times, fault_injector_logfiles: list[Path] = []
     print("Min response time: {}".format(min(times)))
     print("---")
 
-    min_times = min(times)
+    # min_times = min(times)
 
-    corrected_times = [t - min_times for t in times]
-    plt.plot(dates, corrected_times, 'x', color='gray', label='Response time - Minimum response time')
+    # corrected_times = [t - min_times for t in times]
+    # plt.plot(dates, corrected_times, 'x', color='gray', label='Response time - Minimum response time')
 
-    plt.axhline(min_times, color='blue', label='Minimum response time measured')
+    # plt.axhline(min_times, color='blue', label='Minimum response time measured')
     #plt.axhline(max(times), color='r', label='Maximum response time measured')
 
-    plt.axhline(en50136_max_response_time, color='r', label='Maximum response time allowed')
+    plt.axhline(en50136_max_response_time, color='r', label='Max. response time allowed')
 
     # plt.axhline(28, color='orange', label='Expected min fault time')
     # plt.axhline(36, color='orange', label='Expected max fault time')
@@ -171,7 +171,7 @@ def plot_response_times(response_times, fault_injector_logfiles: list[Path] = []
 
     plt.xlabel('Time')
     plt.ylabel('Response time in s')
-    plt.legend(loc='lower right')
+    plt.legend(loc='upper left')
 
 
 def main(
