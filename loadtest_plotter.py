@@ -220,7 +220,7 @@ def main(
             plt.legend(loc='upper left')
             plt.yscale('log')
             plt.ylim(0.001, 1000)
-            plt.savefig('Response_times.pdf')
+            # plt.savefig('Response_times.pdf')
             # plt.grid()
       
         if target_filename_figure is not None:
