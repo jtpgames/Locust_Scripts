@@ -57,78 +57,57 @@ def readMeasurementsFromLogFileAndAppendToList(path):
 
             print(clients, avg, max)
 
+def read_lines_with_ARS_faults(file_path: Path) -> list[str]:
+    lines = []
+    print("read_lines_with_ARS_faults")
+    with file_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            if "faulted" in line or "recovered" in line:
+                lines.append(line.rstrip('\n'))
+    return lines
+
+
+def extract_datetimes(lines: list[str]) -> tuple[list[tuple[str, datetime]], list[tuple[str, datetime]]]:
+    print("extract_datetimes")
+    # stop_pattern = re.compile(r"(?<=faulted @)[^;]*")
+    stop_pattern = re.compile(r"\*(.*)\*.*((?<=faulted @)[^;]*)")
+    # start_pattern = re.compile(r"(?<=recovered @).*")
+    start_pattern = re.compile(r"\*(.*)\*.*((?<=recovered @).*)")
+
+    stops: list[tuple[str, datetime]] = []
+    starts: list[tuple[str, datetime]] = []
+
+    def get_timestamp_from(string):
+        format_string = '%Y-%m-%d %H:%M:%S.%f'
+
+        return datetime.strptime(
+            string,
+            format_string
+        )
+
+
+    for line in lines:
+        stop_match = stop_pattern.search(line)
+        if stop_match:
+            print(f"stop: {stop_match.group(1)}, {stop_match.group(2)}")
+            dt = get_timestamp_from(stop_match.group(2))
+            stops.append((stop_match.group(1), dt))
+            continue  # avoid trying to match both in one line because this is not possible anyway
+
+        start_match = start_pattern.search(line)
+        if start_match:
+            print(f"start: {start_match.group(1)}, {start_match.group(2)}")
+            dt = get_timestamp_from(start_match.group(2))
+            starts.append((start_match.group(1), dt))
+
+    return stops, starts
+
 
 def plot_response_times(response_times, fault_injector_logfiles: list[Path] = []):
     dates = list(response_times.keys())
     times = list(response_times.values())
 
     plt.plot(dates, times, 'o', color='black', label='Response time')
-
-    def read_lines_with_ARS_faults(file_path: Path) -> list[str]:
-        lines = []
-        print("read_lines_with_ARS_faults")
-        with file_path.open("r", encoding="utf-8") as f:
-            for line in f:
-                if "ARS faulted" in line or "ARS recovered" in line:
-                    lines.append(line.rstrip('\n'))
-        return lines
-
-    def extract_datetimes(lines: list[str]) -> tuple[list[datetime], list[datetime]]:
-        print("extract_datetimes")
-        stop_pattern = re.compile(r"(?<=ARS faulted @)[^;]*")
-        start_pattern = re.compile(r"(?<=ARS recovered @).*")
-
-        stops = []
-        starts = []
-
-        def get_timestamp_from(string):
-            format_string = '%Y-%m-%d %H:%M:%S.%f'
-
-            return datetime.strptime(
-                string,
-                format_string
-            )
-
-
-        for line in lines:
-            stop_match = stop_pattern.search(line)
-            if stop_match:
-                print(f"stop: {stop_match.group()}")
-                dt = get_timestamp_from(stop_match.group())
-                stops.append(dt)
-                continue  # avoid matching both in one line
-
-            start_match = start_pattern.search(line)
-            if start_match:
-                print(f"start: {start_match.group()}")
-                dt = get_timestamp_from(start_match.group())
-                starts.append(dt)
-
-        return stops, starts
-
-    if len(fault_injector_logfiles) > 0:
-        for fault_injector_logfile in fault_injector_logfiles:
-            relevant_lines = read_lines_with_ARS_faults(fault_injector_logfile)
-            stops, starts = extract_datetimes(relevant_lines)
-    
-            print("-- Stop-Start --")
-            for i in range(len(stops)):
-                if i >= len(starts):
-                    continue
-
-                diff = abs(stops[i] - starts[i])
-                print("{} - {} = {}".format(stops[i].time(), starts[i].time(), diff.total_seconds()))
-            print("--")
-
-            if "proxy" in fault_injector_logfile.name:
-                linestyle = '-'
-            else:
-                linestyle = '--'
-
-            for d in stops:
-                plt.axvline(d, color='orange', linestyle=linestyle)
-            for d in starts:
-                plt.axvline(d, color='green', linestyle=linestyle)
 
     print("-- Response times as measured by Locust sorted by value and then time --")
     max_response_times = sorted(response_times, key=response_times.get, reverse=True)[:8]
@@ -161,6 +140,44 @@ def plot_response_times(response_times, fault_injector_logfiles: list[Path] = []
     # plt.axhline(28, color='orange', label='Expected min fault time')
     # plt.axhline(36, color='orange', label='Expected max fault time')
 
+    if len(fault_injector_logfiles) > 0:
+        for fault_injector_logfile in fault_injector_logfiles:
+            relevant_lines = read_lines_with_ARS_faults(fault_injector_logfile)
+            stops, starts = extract_datetimes(relevant_lines)
+    
+            print("-- Stop-Start --")
+            for i in range(len(stops)):
+                if i >= len(starts):
+                    continue
+                
+                stop_datetime = stops[i][1]
+                start_datetime = starts[i][1]
+                diff = abs(stop_datetime - start_datetime)
+                print("{} - {} = {}".format(stop_datetime.time(), start_datetime.time(), diff.total_seconds()))
+            print("--")
+
+            if "proxy" in fault_injector_logfile.name:
+                linestyle = '-'
+            else:
+                linestyle = '--'
+
+            for d in stops:
+                service_name = d[0]
+                date_time = d[1]
+                plt.axvline(date_time, color='orange', linestyle=linestyle)
+                label_ypos = plt.ylim()[1]
+                plt.text(date_time, label_ypos, service_name,
+                         rotation=90, verticalalignment='top',
+                         horizontalalignment='right', color='orange')
+            for d in starts:
+                service_name = d[0]
+                date_time = d[1]
+                plt.axvline(date_time, color='green', linestyle=linestyle)
+                label_ypos = plt.ylim()[1]
+                plt.text(date_time, label_ypos, service_name,
+                         rotation=90, verticalalignment='top',
+                         horizontalalignment='right', color='green')
+    
     # beautify the x-labels
     myFmt = mdates.DateFormatter('%H:%M:%S')
     plt.gca().xaxis.set_major_formatter(myFmt)
@@ -171,7 +188,7 @@ def plot_response_times(response_times, fault_injector_logfiles: list[Path] = []
 
     plt.xlabel('Time')
     plt.ylabel('Response time in s')
-    plt.legend(loc='upper left')
+    plt.legend(loc='upper left', bbox_to_anchor=(1.0, 1.0))
 
 
 def main(
