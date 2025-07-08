@@ -31,6 +31,7 @@ class AlarmDevice(RepeatingHttpLocust):
     # wait_time = between(20, 90)
     # Use most demanding frequency of the EN 50136-1 standard
     wait_time = between(20, 90)
+    # wait_time = constant(1)
     
     available_phone_numbers_for_devices = ["015142611148", "01754937448", "016590943333"]
     available_branch_numbers_for_devices = list(range(2001, 2011)) + list(range(2012, 2017))
