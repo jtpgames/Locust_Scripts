@@ -147,7 +147,7 @@ def parameter_variation_loop_with_limit(multiplier: int = 5000, limit: int = 200
         if num_clients >= limit:
             break
 
-        call_locust_and_distribute_work(locust_script, url, num_clients, runtime_in_min=1, use_load_test_shape=False, num_workers=1)
+        call_locust_and_distribute_work(locust_script, url, num_clients, runtime_in_min=1, use_load_test_shape=False, num_workers=1, use_manual_runtime_management=True)
 
         read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv", num_clients)
 
@@ -214,7 +214,7 @@ if __name__ == "__main__":
         url = input_args.url
 
     if input_args.parametervariation:
-        parameter_variation_loop(input_args.multiplier)
+        parameter_variation_loop_with_limit(input_args.multiplier)
     else:
         call_locust_with(locust_script, url, clients=input_args.multiplier, locust_logfile=f"locust_log_{input_args.multiplier}.log")
 
