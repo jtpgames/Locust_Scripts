@@ -41,7 +41,14 @@ def read_response_times_from_locust_logfile(path: str):
     return response_times
 
 
-def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min, use_load_test_shape=True, num_workers=5):
+def call_locust_and_distribute_work(
+        locust_script, url, 
+        clients, 
+        runtime_in_min, 
+        use_load_test_shape=True, 
+        num_workers=5, 
+        use_manual_runtime_management=False
+    ):
     logger = logging.getLogger('call_locust_and_distribute_work')
 
     params = f"-f {locust_script} "
@@ -57,26 +64,47 @@ def call_locust_and_distribute_work(locust_script, url, clients, runtime_in_min,
     for i in range(0, num_workers):
         logger.info(f"Starting {i+1}. worker")
 
-        os.system(
-            f"env use_load_test_shape={use_load_test_shape} \
-            {locust_path} {params} \
+        if use_manual_runtime_management:
+            os.system(
+                f"env use_load_test_shape={use_load_test_shape} \
+                env EXPERIMENT_RUNTIME={runtime_in_min} \
+                {locust_path} {params} \
                 --logfile worker_log_{clients}.{i+1}.log \
                 --worker &"
-        )
+            )
+        else:
+            os.system(
+                f"env use_load_test_shape={use_load_test_shape} \
+                {locust_path} {params} \
+                --logfile worker_log_{clients}.{i+1}.log \
+                --worker &"
+            )
 
     logger.info("Starting master to run for %s min", runtime_in_min)
     logger.info(f"--expect-workers={num_workers}")
 
-    os.system(
-        f"env use_load_test_shape={use_load_test_shape} \
-        {locust_path} {params} \
-            --run-time={runtime_in_min}m \
-            --users={clients} --spawn-rate={num_workers * 100} \
-            --logfile locust_log_{clients}.log \
-            --csv=loadtest_{clients}_clients \
-            --master \
-            --expect-workers={num_workers}"
-    )
+    if use_manual_runtime_management:
+        os.system(
+            f"env use_load_test_shape={use_load_test_shape} \
+            env EXPERIMENT_RUNTIME={runtime_in_min} \
+            {locust_path} {params} \
+                --users={clients} --spawn-rate={num_workers * 100} \
+                --logfile locust_log_{clients}.log \
+                --csv=loadtest_{clients}_clients \
+                --master \
+                --expect-workers={num_workers}"
+        )
+    else:
+        os.system(
+            f"env use_load_test_shape={use_load_test_shape} \
+            {locust_path} {params} \
+                --run-time={runtime_in_min}m \
+                --users={clients} --spawn-rate={num_workers * 100} \
+                --logfile locust_log_{clients}.log \
+                --csv=loadtest_{clients}_clients \
+                --master \
+                --expect-workers={num_workers}"
+        )
 
 
 def call_locust_with(locust_script, url, clients, runtime_in_min=-1, omit_csv_files=False, use_load_test_shape=True, locust_logfile="locust_log.log"):
