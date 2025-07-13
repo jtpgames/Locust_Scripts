@@ -8,7 +8,6 @@ from locust import events, User
 from stopwatch import Stopwatch
 from httpx import Client, Limits
 
-
 class RepeatingClient(ABC):
     """
     Base class that implements the repetition, but not the actual data transfer.
@@ -47,7 +46,8 @@ class RepeatingClient(ABC):
                 response, successfully_sent = self.send_impl(url, data, request_id=request_id)
                 logger.info("{} {} {}".format(self.ID, response, successfully_sent))
             except Exception as e:
-                logger.error("[%i] (%i) %i. try: Exception occurred: %s", self.ID,  request_id, number_of_tries, str(e))
+                logger.error("[%i] (%i) %i. try: Exception occurred: %r", self.ID,  request_id, number_of_tries, e)
+                # logger.exception("[%i] (%i) Exception details:", self.ID, request_id)
 
             if not successfully_sent:
                 index_base_url_to_use += 1
@@ -103,6 +103,8 @@ class RepeatingHttpxClient(RepeatingClient):
 
     def __init__(self, base_url: str, parent_user: User):
         super().__init__(base_url, parent_user)
+        # logging.getLogger("httpx").setLevel(logging.DEBUG)
+        # logging.getLogger("httpcore").setLevel(logging.DEBUG)
 
     def send_impl(self, url, data=None, request_id=uuid1().int) -> (object, bool):
         RepeatingHttpxClient.LOGGER.info("POST")
