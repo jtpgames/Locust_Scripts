@@ -98,7 +98,7 @@ class RepeatingHttpClient(RepeatingClient):
 class RepeatingHttpxClient(RepeatingClient):
     REQUEST_TIMEOUT = 60
     LOGGER = logging.getLogger('RepeatingHttpxClient')
-    HTTP_POOL_LIMITS = Limits(max_connections=50000, max_keepalive_connections=1000)
+    HTTP_POOL_LIMITS = Limits(max_connections=50000, max_keepalive_connections=1000, keepalive_expiry=30)
     CLIENT = Client(http2=True, limits=HTTP_POOL_LIMITS)
 
     def __init__(self, base_url: str, parent_user: User):
