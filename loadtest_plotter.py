@@ -241,7 +241,7 @@ def main(
             # plt.grid()
       
         if target_filename_figure is not None:
-            plt.savefig(target_filename_figure)
+            plt.savefig(target_filename_figure, bbox_inches='tight')
         else:
             plt.show()
 
