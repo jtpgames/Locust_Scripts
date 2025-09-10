@@ -1,14 +1,50 @@
 #!/bin/bash
 
-# Check if the IP address argument is provided
-if [ "$1" = "--ip" ] && [ -n "$2" ]; then
-    ip_address="$2"
-    ip_address="http://$2:8080"
+# Default values
+ip_address="127.0.0.1"
+port="8080"
+use_port=true
+
+# Parse arguments in any order
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --ip)
+            if [ -n "$2" ]; then
+                ip_address="$2"
+                shift 2
+            else
+                echo "Error: --ip requires an IP address argument"
+                exit 1
+            fi
+            ;;
+        --port)
+            if [ -n "$2" ]; then
+                port="$2"
+                shift 2
+            else
+                echo "Error: --port requires a port number argument"
+                exit 1
+            fi
+            ;;
+        --no_port)
+            use_port=false
+            shift
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            echo "Usage: $0 [--ip IP_ADDRESS] [--port PORT_NUMBER] [--no_port]"
+            exit 1
+            ;;
+    esac
+done
+
+# Construct the URL
+if [ "$use_port" = true ]; then
+    url="http://$ip_address:$port"
 else
-    # Set a default IP address
-    ip_address="http://127.0.0.1:8080"
+    url="http://$ip_address"
 fi
 
-echo "Using URL: $ip_address"
+echo "Using URL: $url"
 
-python3 executor.py locust/official_teastore_locustfile.py -u "$ip_address" -s
+python3 executor.py locust/official_teastore_locustfile.py -u "$url" -s
