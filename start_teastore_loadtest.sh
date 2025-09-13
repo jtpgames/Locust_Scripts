@@ -4,6 +4,7 @@
 ip_address="127.0.0.1"
 port="8080"
 use_port=true
+silent_execution=true
 
 # Parse arguments in any order
 while [[ $# -gt 0 ]]; do
@@ -30,9 +31,13 @@ while [[ $# -gt 0 ]]; do
             use_port=false
             shift
             ;;
+        --verbose)
+            silent_execution=false
+            shift
+            ;;
         *)
             echo "Unknown argument: $1"
-            echo "Usage: $0 [--ip IP_ADDRESS] [--port PORT_NUMBER] [--no_port]"
+            echo "Usage: $0 [--ip IP_ADDRESS] [--port PORT_NUMBER] [--no_port] [--verbose]"
             exit 1
             ;;
     esac
@@ -47,4 +52,9 @@ fi
 
 echo "Using URL: $url"
 
-python3 executor.py locust/official_teastore_locustfile.py -u "$url" -s
+# Construct the python command with conditional silent flag
+if [ "$silent_execution" = true ]; then
+    python3 executor.py locust/official_teastore_locustfile.py -u "$url" -s
+else
+    python3 executor.py locust/official_teastore_locustfile.py -u "$url"
+fi
