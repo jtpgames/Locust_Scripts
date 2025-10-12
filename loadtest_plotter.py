@@ -198,12 +198,11 @@ def main(
     ],
     fault_injector_logfiles: Annotated[
         list[Path],
-        typer.Argument(
-            help="Zero or more fault injector log files (optional, can pass multiple)",
-            exists=True,
-            readable=True
+        typer.Option(
+            "-f", "--fault-injector",
+            help="Fault injector log files (can be specified multiple times)"
         )
-    ],
+    ] = [],
     target_filename_figure: Annotated[
         Optional[Path],
         typer.Option(
@@ -222,8 +221,16 @@ def main(
     try:
         response_times = readResponseTimesFromLogFile(str(logfile))
         
+        # Filter out non-existent files
+        existing_fault_injector_logfiles = []
+        for logfile_path in fault_injector_logfiles:
+            if logfile_path.exists():
+                existing_fault_injector_logfiles.append(logfile_path)
+            else:
+                print(f"Warning: Fault injector logfile does not exist: {logfile_path}")
+        
         if len(response_times) > 0:
-            plot_response_times(response_times, fault_injector_logfiles)
+            plot_response_times(response_times, existing_fault_injector_logfiles)
         else:
             readMeasurementsFromLogFileAndAppendToList(logfile)
             plt.plot(num_clients, avg_time_allowed, 'y--', label='Average time allowed')
