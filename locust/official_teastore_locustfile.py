@@ -130,7 +130,7 @@ def reset_teastore_logs(environment: Environment):
 def on_test_start(environment: Environment, **kwargs):
     reset_teastore_logs(environment)
 
-    environment.stop_timeout = 10
+    environment.stop_timeout = 30
 
     global locust_environment
     locust_environment = environment
@@ -164,7 +164,7 @@ def my_success_handler(request_type, name, response_time, response_length, **kw)
 
 @events.request_failure.add_listener
 def my_failure_handler(request_type, name, response_time, response_length, exception):
-    logging.error(f"{request_type} {name} failed", response_time)
+    logging.error(f"{request_type} {name} failed. Response time {response_time} ms. Ex: {exception}")
 
 
 class LoadIntensityProfile(Enum):
