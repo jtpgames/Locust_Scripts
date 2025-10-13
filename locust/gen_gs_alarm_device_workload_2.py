@@ -28,6 +28,43 @@ EXPERIMENT_RUNTIME = timedelta(minutes=float(os.environ.get('EXPERIMENT_RUNTIME'
 locust_environment: Environment = None
 experiment_starttime: datetime = datetime.now()
 
+def monitor_and_stop_users():
+    """
+    Monitor experiment duration and stop Locust runner after timeout.
+    Runs only on the master (MasterRunner) or in standalone mode (LocalRunner).
+    """
+
+    LOGGER = logging.getLogger('AlarmDevice')
+
+    environment = locust_environment
+
+    # Wait until the runner is initialized
+    while not hasattr(environment, "runner") or environment.runner is None:
+        gevent.sleep(0.5)
+
+    runner = getattr(environment, "runner", None)
+    if not runner:
+        LOGGER.warning("Monitor greenlet: no runner found, exiting.")
+        return
+
+    runner_class = runner.__class__.__name__
+    if runner_class not in ("MasterRunner", "LocalRunner"):
+        # worker runner detected → do nothing
+        LOGGER.info(f"Monitor greenlet not started on {runner_class}.")
+        return
+
+    LOGGER.info(f"Monitor greenlet started on {runner_class}.")
+    while True:
+        gevent.sleep(1)
+        now = datetime.now()
+        time_since_experiment = now - experiment_starttime
+        if time_since_experiment > EXPERIMENT_RUNTIME:
+            LOGGER.info(
+                f"Experiment runtime reached ({time_since_experiment}); stopping test..."
+            )
+            runner.quit()
+            break
+
 @events.init.add_listener
 def on_test_start(environment: Environment, **kwargs):
     environment.stop_timeout = 10
@@ -40,6 +77,9 @@ def on_test_start(environment: Environment, **kwargs):
     LOGGER = logging.getLogger('AlarmDevice')
     LOGGER.info(f"Experiment started @{experiment_starttime} to run for {EXPERIMENT_RUNTIME}")
 
+    LOGGER.info("Experiment started; launching monitor greenlet.")
+    gevent.spawn_later(1, monitor_and_stop_users)
+
 
 class AlarmDevice(RepeatingHttpLocust):
     """
@@ -49,7 +89,7 @@ class AlarmDevice(RepeatingHttpLocust):
     # Wait time between 20 sec (SP6 devices) and 90 sec (DP4 devices) according to EN 50136-1
     # wait_time = between(20, 90)
     # Use most demanding frequency of the EN 50136-1 standard
-    wait_time = between(20, 90)
+    wait_time = constant(20)
     # wait_time = constant(1)
     
     available_phone_numbers_for_devices = ["015142611148", "01754937448", "016590943333"]
@@ -82,16 +122,6 @@ class AlarmDevice(RepeatingHttpLocust):
         json_obj = self.construct_call_with_reject_request_object()
 
         response = self.client.send("/api/v1/simple", json_obj)
-
-        now = datetime.now()
-        time_since_experiment = now - experiment_starttime
-        if time_since_experiment > EXPERIMENT_RUNTIME:
-            AlarmDevice.LOGGER.info(f"Stopping user")
-            if AlarmDevice.currently_executing_users == 1:
-                AlarmDevice.LOGGER.info(f"Stopping Runner")
-                gevent.spawn_later(2, locust_environment.runner.quit)
-            self.stop()
-            AlarmDevice.currently_executing_users -= 1
 
 
     @task(1)
