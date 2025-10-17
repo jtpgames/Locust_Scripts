@@ -1,6 +1,8 @@
 import logging
 from abc import ABC, abstractmethod
+from random import randint
 from uuid import uuid1
+import os
 
 import requests
 from locust import events, User
@@ -27,6 +29,10 @@ class RepeatingClient(ABC):
 
         index_base_url_to_use = 0
         base_urls = [url.strip() for url in self.base_url.split(",")] if "," in self.base_url else [self.base_url]
+
+        use_random_endpoint = os.environ.get('USE_RANDOM_ENDPOINT', '').lower() in ('1', 'true', 'yes')
+        if use_random_endpoint:
+            index_base_url_to_use = randint(0, len(base_urls) - 1)
 
         request_id = uuid1().int
 
