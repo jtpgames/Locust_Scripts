@@ -9,6 +9,9 @@ from urllib.parse import urlparse
 import requests
 from locust import events, User
 
+# Check if HTTP/2 should be used
+_use_http2 = os.getenv('USE_HTTP_2', '').lower() in ('1', 'true', 'yes')
+
 from stopwatch import Stopwatch
 from httpx import Client, Limits
 
@@ -107,8 +110,7 @@ class RepeatingHttpxClient(RepeatingClient):
     REQUEST_TIMEOUT = 60
     LOGGER = logging.getLogger('RepeatingHttpxClient')
     HTTP_POOL_LIMITS = Limits(max_connections=50000, max_keepalive_connections=1000, keepalive_expiry=30)
-    CLIENT = Client(http2=True, limits=HTTP_POOL_LIMITS)
-    
+    CLIENT = Client(http2=_use_http2, http1=not _use_http2, limits=HTTP_POOL_LIMITS)
     # DNS cache for hostname to IP resolution
     DNS_CACHE = {}
 
