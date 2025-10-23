@@ -89,8 +89,9 @@ class AlarmDevice(RepeatingHttpLocust):
     # Wait time between 20 sec (SP6 devices) and 90 sec (DP4 devices) according to EN 50136-1
     # wait_time = between(20, 90)
     # Use most demanding frequency of the EN 50136-1 standard
-    wait_time = constant(20)
-    # wait_time = constant(1)
+    # wait_time = constant(20)
+    # Use unrealistically high frequency to fully saturate the MARC.
+    wait_time = constant(1)
     
     available_phone_numbers_for_devices = ["015142611148", "01754937448", "016590943333"]
     available_branch_numbers_for_devices = list(range(2001, 2011)) + list(range(2012, 2017))
@@ -122,6 +123,16 @@ class AlarmDevice(RepeatingHttpLocust):
         json_obj = self.construct_call_with_reject_request_object()
 
         response = self.client.send("/api/v1/simple", json_obj)
+
+        # now = datetime.now()
+        # time_since_experiment = now - experiment_starttime
+        # if time_since_experiment > EXPERIMENT_RUNTIME:
+        #     AlarmDevice.LOGGER.info(f"Stopping user")
+        #     if AlarmDevice.currently_executing_users == 1:
+        #         AlarmDevice.LOGGER.info(f"Stopping Runner")
+        #         gevent.spawn_later(2, locust_environment.runner.quit)
+        #     self.stop()
+        #     AlarmDevice.currently_executing_users -= 1
 
 
     @task(1)
