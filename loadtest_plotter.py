@@ -261,8 +261,9 @@ def main(
 
             plt.xlabel('Number of alarm devices')
             plt.ylabel('Response time in s')
-            plt.legend(loc='upper left')
+            plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=2)
             plt.yscale('log')
+            plt.gca().xaxis.set_major_locator(plt.MultipleLocator(1000))
             plt.ylim(0.001, 1000)
             # plt.savefig('Response_times.pdf')
             # plt.grid()
