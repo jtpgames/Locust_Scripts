@@ -1,10 +1,30 @@
 import json
 from pathlib import Path
+import typer
 
-results = []
+app = typer.Typer()
 
-if __name__ == "__main__":
-    for path in Path('locust-parameter-variation-logs-simutools2023/Kotlin-ARS-logs-24-04-23').rglob('v2*.log'):
+@app.command()
+def main(
+    directory: str = typer.Argument(
+        ...,
+        help="Directory to search for log files"
+    ),
+    pattern: str = typer.Option(
+        "*locust-parameter-variation*.log",
+        "--pattern", "-p",
+        help="File pattern to search for"
+    )
+):
+    """Aggregate locust parameter variation logs."""
+    results = []
+    
+    search_dir = Path(directory)
+    if not search_dir.exists():
+        typer.echo(f"Error: Directory '{directory}' does not exist", err=True)
+        raise typer.Exit(1)
+
+    for path in search_dir.rglob(pattern):
         # print(path)
 
         with open(path, 'r') as file_obj:
@@ -68,11 +88,15 @@ if __name__ == "__main__":
         for value in result['values']:
             print(f"{result['num_clients']}, {value['avg']}, {value['max']}, {result['mean_of_values']['avg']}, {result['mean_of_values']['max']}")
 
-    with open("aggregated_logs.log", 'w') as file_obj:
+    output_file = search_dir / "aggregated_logs.log"
+    with open(output_file, 'w') as file_obj:
         for result in results:
             file_obj.write(f"Clients: {result['num_clients']}: "
                            f"avg: {result['mean_of_values']['avg']}, "
                            f"max: {result['mean_of_values']['max']}\n")
+
+if __name__ == "__main__":
+    app()
 
 
 
