@@ -106,8 +106,12 @@ def extract_datetimes(lines: list[str]) -> tuple[list[tuple[str, datetime]], lis
 def plot_response_times(response_times, fault_injector_logfiles: list[Path] = []):
     dates = list(response_times.keys())
     times = list(response_times.values())
+    
+    # Calculate relative time from experiment start
+    start_time = min(dates)
+    relative_times = [(date - start_time).total_seconds() for date in dates]
 
-    plt.plot(dates, times, 'o', color='black', label='Response time')
+    plt.plot(relative_times, times, 'o', color='black', label='Response time')
 
     print("-- Response times as measured by Locust sorted by value and then time --")
     max_response_times = sorted(response_times, key=response_times.get, reverse=True)[:8]
@@ -164,31 +168,27 @@ def plot_response_times(response_times, fault_injector_logfiles: list[Path] = []
             for d in stops:
                 service_name = d[0]
                 date_time = d[1]
-                plt.axvline(date_time, color='orange', linestyle=linestyle)
+                relative_time = (date_time - start_time).total_seconds()
+                plt.axvline(relative_time, color='orange', linestyle=linestyle)
                 label_ypos = plt.ylim()[1]
-                plt.text(date_time, label_ypos, service_name,
+                plt.text(relative_time, label_ypos, service_name,
                          rotation=90, verticalalignment='top',
                          horizontalalignment='right', color='orange')
             for d in starts:
                 service_name = d[0]
                 date_time = d[1]
-                plt.axvline(date_time, color='green', linestyle=linestyle)
+                relative_time = (date_time - start_time).total_seconds()
+                plt.axvline(relative_time, color='green', linestyle=linestyle)
                 label_ypos = plt.ylim()[1]
-                plt.text(date_time, label_ypos, service_name,
+                plt.text(relative_time, label_ypos, service_name,
                          rotation=90, verticalalignment='top',
                          horizontalalignment='right', color='green')
     
-    # beautify the x-labels
-    myFmt = mdates.DateFormatter('%H:%M:%S')
-    plt.gca().xaxis.set_major_formatter(myFmt)
-    #plt.gca().xaxis.set_major_locator(mdates.SecondLocator(interval=30))
-    #plt.gca().xaxis.set_minor_locator(mdates.SecondLocator(interval=10))
-    #plt.gca().xaxis.set_minor_formatter(mdates.DateFormatter('%Ss'))
-    plt.gcf().autofmt_xdate()
-
-    plt.xlabel('Time')
+    plt.gca().xaxis.set_major_locator(plt.MultipleLocator(50))
+    
+    plt.xlabel('Time (s)')
     plt.ylabel('Response time in s')
-    plt.legend(loc='upper left', bbox_to_anchor=(1.0, 1.0))
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=3)
 
 
 def main(
@@ -217,6 +217,26 @@ def main(
     ] = None
 ) -> None:
     """Load test plotter - analyze and plot response times from log files."""
+    
+    # Configure matplotlib for publication-quality output
+    plt.rcParams.update({
+        'font.size': 14,
+        'axes.titlesize': 16,
+        'axes.labelsize': 18,
+        'xtick.labelsize': 16,
+        'ytick.labelsize': 16,
+        'legend.fontsize': 14,
+        'font.family': 'serif',
+        'font.serif': ['Times', 'Times New Roman', 'DejaVu Serif'],
+        'mathtext.fontset': 'dejavuserif',
+        # LaTeX text rendering for crisp output
+        'text.usetex': True,
+        'text.latex.preamble': r'\usepackage{times}',
+        'pdf.fonttype': 42,     # TrueType fonts (not bitmap)
+        'ps.fonttype': 42,      # TrueType fonts (not bitmap)
+        'svg.fonttype': 'none', # Keep text as text in SVG
+        'axes.unicode_minus': False,  # Use LaTeX minus sign
+    })
 
     try:
         response_times = readResponseTimesFromLogFile(str(logfile))
@@ -248,7 +268,13 @@ def main(
             # plt.grid()
       
         if target_filename_figure is not None:
-            plt.savefig(target_filename_figure, bbox_inches='tight')
+            plt.savefig(target_filename_figure, format='pdf', 
+                       bbox_inches='tight',    # Remove extra whitespace
+                       dpi=600,               # Higher DPI for small figures (better text clarity)
+                       facecolor='white',     # Clean background
+                       edgecolor='none',      # No border
+                       pad_inches=0.02,       # Minimal padding for compact layout
+                       transparent=False)     # Solid background for print
         else:
             plt.show()
 
