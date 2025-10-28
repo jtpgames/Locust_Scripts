@@ -188,6 +188,10 @@ def plot_response_times(response_times, fault_injector_logfiles: list[Path] = []
     
     plt.xlabel('Time (s)')
     plt.ylabel('Response time in s')
+
+    plt.yscale('log')
+    plt.ylim(0.001, 100)
+
     plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=3)
 
 
@@ -261,7 +265,7 @@ def main(
 
             plt.xlabel('Number of alarm devices')
             plt.ylabel('Response time in s')
-            plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=2)
+            plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.20), ncol=2)
             plt.yscale('log')
             plt.gca().xaxis.set_major_locator(plt.MultipleLocator(1000))
             plt.ylim(0.001, 1000)
