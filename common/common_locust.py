@@ -124,7 +124,11 @@ class RepeatingHttpxClient(RepeatingClient):
         """Resolve hostname in URL to IP address, cache the result"""
         parsed = urlparse(url)
         hostname = parsed.hostname
-        
+       
+        # Skip DNS caching if environment variable is set
+        if os.getenv('SKIP_DNS_CACHE', '').lower() in ('1', 'true', 'yes'):
+            return url
+
         if hostname in RepeatingHttpxClient.DNS_CACHE:
             RepeatingHttpxClient.LOGGER.debug(f"DNS cache hit for {hostname} -> {RepeatingHttpxClient.DNS_CACHE[hostname]}")
             return url.replace(hostname, RepeatingHttpxClient.DNS_CACHE[hostname])
