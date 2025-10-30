@@ -200,6 +200,13 @@ def main(
         Path,
         typer.Argument(..., help="Path to the log file to analyze", exists=True, readable=True)
     ],
+    additional_logfiles: Annotated[
+        list[Path],
+        typer.Option(
+            "-l", "--logfile",
+            help="Additional log files to compare (can be specified multiple times)"
+        )
+    ] = [],
     fault_injector_logfiles: Annotated[
         list[Path],
         typer.Option(
@@ -256,21 +263,81 @@ def main(
         if len(response_times) > 0:
             plot_response_times(response_times, existing_fault_injector_logfiles)
         else:
-            readMeasurementsFromLogFileAndAppendToList(logfile)
-            plt.plot(num_clients, avg_time_allowed, 'y--', label='Average time allowed')
-            plt.plot(num_clients, max_time_allowed, 'r--', label='Maximum time allowed')
-            # plt.plot(num_clients, min_response_time, label='min')
-            plt.plot(num_clients, average_response_time, label='avg')
-            plt.plot(num_clients, max_response_time, label='max')
+            # Check if additional logfiles were provided
+            if len(additional_logfiles) > 0:
+                # Read measurements from the first file
+                readMeasurementsFromLogFileAndAppendToList(logfile)
+                
+                # Plot time allowed lines only once
+                # plt.plot(num_clients, avg_time_allowed, 'y--', label='Average time allowed')
+                # plt.plot(num_clients, max_time_allowed, 'r--', label='Maximum time allowed')
+                
+                # Plot first file data
+                plt.plot(num_clients, average_response_time, label=f'avg ({logfile.stem})')
+                plt.plot(num_clients, max_response_time, label=f'max ({logfile.stem})')
+                
+                # Process additional logfiles
+                for additional_logfile in additional_logfiles:
+                    # Reset lists for each additional file
+                    additional_num_clients = []
+                    additional_avg_time_allowed = []
+                    additional_max_time_allowed = []
+                    additional_average_response_time = []
+                    additional_min_response_time = []
+                    additional_max_response_time = []
+                    
+                    # Read measurements from additional file
+                    with open(additional_logfile) as logfile_handle:
+                        for line in logfile_handle:
+                            if 'Clients' not in line:
+                                continue
 
-            plt.xlabel('Number of alarm devices')
-            plt.ylabel('Response time in s')
-            plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.20), ncol=2)
-            plt.yscale('log')
-            plt.gca().xaxis.set_major_locator(plt.MultipleLocator(1000))
-            plt.ylim(0.001, 1000)
-            # plt.savefig('Response_times.pdf')
-            # plt.grid()
+                            lineAfterClients = line.split('Clients')[1]
+
+                            cleanedLine = lineAfterClients.replace('s', '')
+                            cleanedLine = cleanedLine.replace(',', '')
+                            cleanedLine = cleanedLine.replace('avg', '')
+                            cleanedLine = cleanedLine.replace('max', '')
+
+                            splittedLine = cleanedLine.split(':')
+
+                            clients = float(splittedLine[1])
+                            avg = float(splittedLine[3])
+                            max_val = float(splittedLine[4])
+
+                            additional_num_clients.append(clients)
+                            additional_average_response_time.append(avg)
+                            additional_max_response_time.append(max_val)
+
+                            print(clients, avg, max_val)
+                    
+                    # Plot additional file data
+                    plt.plot(additional_num_clients, additional_average_response_time, label=f'avg ({additional_logfile.stem})')
+                    plt.plot(additional_num_clients, additional_max_response_time, label=f'max ({additional_logfile.stem})')
+                
+                plt.xlabel('Number of alarm devices')
+                plt.ylabel('Response time in s')
+                plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), ncol=2)
+                plt.yscale('log')
+                plt.gca().xaxis.set_major_locator(plt.MultipleLocator(1000))
+                plt.ylim(0.001, 1000)
+            else:
+                # Original behavior when no additional logfiles
+                readMeasurementsFromLogFileAndAppendToList(logfile)
+                plt.plot(num_clients, avg_time_allowed, 'y--', label='Average time allowed')
+                plt.plot(num_clients, max_time_allowed, 'r--', label='Maximum time allowed')
+                # plt.plot(num_clients, min_response_time, label='min')
+                plt.plot(num_clients, average_response_time, label='avg')
+                plt.plot(num_clients, max_response_time, label='max')
+
+                plt.xlabel('Number of alarm devices')
+                plt.ylabel('Response time in s')
+                plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.20), ncol=2)
+                plt.yscale('log')
+                plt.gca().xaxis.set_major_locator(plt.MultipleLocator(1000))
+                plt.ylim(0.001, 1000)
+                # plt.savefig('Response_times.pdf')
+                # plt.grid()
       
         if target_filename_figure is not None:
             plt.savefig(target_filename_figure, format='pdf', 
