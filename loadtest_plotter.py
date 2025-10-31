@@ -273,8 +273,8 @@ def main(
                 # plt.plot(num_clients, max_time_allowed, 'r--', label='Maximum time allowed')
                 
                 # Plot first file data
-                plt.plot(num_clients, average_response_time, label=f'avg ({logfile.stem})')
-                plt.plot(num_clients, max_response_time, label=f'max ({logfile.stem})')
+                plt.plot(num_clients, average_response_time, 'b-', label=f'avg ({logfile.stem})')
+                plt.plot(num_clients, max_response_time, 'b--', label=f'max ({logfile.stem})')
                 
                 # Process additional logfiles
                 for additional_logfile in additional_logfiles:
@@ -312,15 +312,15 @@ def main(
                             print(clients, avg, max_val)
                     
                     # Plot additional file data
-                    plt.plot(additional_num_clients, additional_average_response_time, label=f'avg ({additional_logfile.stem})')
-                    plt.plot(additional_num_clients, additional_max_response_time, label=f'max ({additional_logfile.stem})')
+                    plt.plot(additional_num_clients, additional_average_response_time, 'g:',label=f'avg ({additional_logfile.stem})')
+                    plt.plot(additional_num_clients, additional_max_response_time, 'g-.', label=f'max ({additional_logfile.stem})')
                 
                 plt.xlabel('Number of alarm devices')
                 plt.ylabel('Response time in s')
                 plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), ncol=2)
                 plt.yscale('log')
                 plt.gca().xaxis.set_major_locator(plt.MultipleLocator(1000))
-                plt.ylim(0.001, 1000)
+                plt.ylim(0.01, 100)
             else:
                 # Original behavior when no additional logfiles
                 readMeasurementsFromLogFileAndAppendToList(logfile)
