@@ -151,7 +151,7 @@ def parameter_variation_loop_with_limit(multiplier: int = 5000, limit: int = 200
 
         num_clients = new_num_clients
 
-        call_locust_and_distribute_work(locust_script, url, num_clients, runtime_in_min=1, use_load_test_shape=False, num_workers=1, use_manual_runtime_management=True)
+        call_locust_and_distribute_work(locust_script, url, num_clients, runtime_in_min=1, use_load_test_shape=False, num_workers=3, use_manual_runtime_management=True)
 
         read_measurements_from_locust_csv_and_append_to_dictonaries(f"loadtest_{num_clients}_clients_stats.csv", num_clients)
 
